@@ -6,6 +6,7 @@ import { OpenPositions } from "@/components/open-positions";
 import { ButtonLink, Card, CardTitle, EmptyState, PageHeader, Stat, cn } from "@/components/ui";
 import type { Insight } from "@/lib/analytics/insights";
 import type { BreakdownRow } from "@/lib/analytics/metrics";
+import { RULE_LABELS } from "@/lib/analytics/rules";
 import { getDashboardData, RANGES, type RangeKey } from "@/lib/data/dashboard";
 import { money, percent, pnlClass, rMultiple, ratio } from "@/lib/format";
 import { requireUser } from "@/lib/session";
@@ -129,6 +130,38 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
         <p className="mb-4 text-xs text-navy-400">Your accounts use different currencies, so statistics are shown one account at a time.</p>
       )}
 
+      {data.guardrails.length > 0 && (
+        <div className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {data.guardrails.map((g) => {
+            const stop = g.lossLimitHit || g.tradesLimitHit;
+            return (
+              <div
+                key={g.accountName}
+                role="status"
+                className={cn(
+                  "rounded-xl border p-4",
+                  stop ? "border-loss/50 bg-loss/10" : "border-navy-700 bg-navy-850/80",
+                )}
+              >
+                <p className="text-xs font-medium uppercase tracking-wider text-navy-400">Today · {g.accountName}</p>
+                <p className={cn("mt-1 font-semibold", stop ? "text-loss" : "text-white")}>
+                  {g.lossLimitHit
+                    ? "⛔ Daily loss limit reached — stop trading for today"
+                    : g.tradesLimitHit
+                      ? "⛔ Max trades for today reached"
+                      : "✓ Within your daily rules"}
+                </p>
+                <p className="num mt-1 text-sm text-navy-300">
+                  Realised <span className={pnlClass(g.realised)}>{money(g.realised, g.currency, { signed: true })}</span>
+                  {g.lossRemaining && <> · {money(g.lossRemaining, g.currency)} left before limit</>}
+                  {g.maxTradesPerDay && <> · {g.tradesToday}/{g.maxTradesPerDay} trades</>}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {data.openPositions.length > 0 && (
         <div className="mb-6">
           <OpenPositions positions={data.openPositions} currency={currency} />
@@ -170,7 +203,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
                 <summary className="cursor-pointer text-xs text-electric-soft">View as table</summary>
                 <div className="mt-2 max-h-64 overflow-y-auto">
                   <table className="w-full text-xs">
-                    <thead className="text-left text-navy-400"><tr><th className="py-1">Day (UTC)</th><th className="text-right">Trades</th><th className="text-right">Day P&amp;L</th><th className="text-right">Equity</th></tr></thead>
+                    <thead className="text-left text-navy-400"><tr><th className="py-1">Day</th><th className="text-right">Trades</th><th className="text-right">Day P&amp;L</th><th className="text-right">Equity</th></tr></thead>
                     <tbody>
                       {[...data.curve].reverse().map((p) => (
                         <tr key={p.date} className="border-t border-navy-700/60">
@@ -197,9 +230,55 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             <BreakdownTable title="By setup" rows={data.bySetup} currency={currency} />
             <BreakdownTable title="By instrument" rows={data.bySymbol} currency={currency} />
-            <BreakdownTable title="By weekday" rows={data.byWeekday} currency={currency} note="Based on entry time in UTC." />
+            <BreakdownTable title="By weekday" rows={data.byWeekday} currency={currency} note={`Entry time in ${data.timeZone.replace(/_/g, " ")}.`} />
+            <BreakdownTable title="By hour of entry" rows={data.byHour} currency={currency} note={`Entry time in ${data.timeZone.replace(/_/g, " ")}.`} />
             <BreakdownTable title="Rule discipline" rows={data.byRules} currency={currency} />
             <BreakdownTable title="Emotional state" rows={data.byEmotion} currency={currency} note="Correlations in your journal, not a diagnosis." />
+            {data.discipline ? (
+              <Card>
+                <CardTitle>Plan discipline</CardTitle>
+                <ul className="mb-3 space-y-1 text-sm">
+                  {data.discipline.byRule.map((r) => (
+                    <li key={r.rule} className="flex justify-between">
+                      <span className="text-navy-300">{RULE_LABELS[r.rule]}</span>
+                      <span className={cn("num font-medium", r.count ? "text-loss" : "text-profit")}>{r.count}</span>
+                    </li>
+                  ))}
+                </ul>
+                <dl className="grid grid-cols-2 gap-3 border-t border-navy-700 pt-3 text-sm">
+                  <div>
+                    <dt className="text-xs text-navy-400">Trades within plan</dt>
+                    <dd className={cn("num font-semibold", pnlClass(data.discipline.clean.netPnl))}>{money(data.discipline.clean.netPnl, currency, { signed: true })}</dd>
+                    <dd className="text-xs text-navy-400">{data.discipline.clean.closedTrades} closed · avg {money(data.discipline.clean.expectancy, currency, { signed: true })}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-navy-400">Trades breaking a rule</dt>
+                    <dd className={cn("num font-semibold", pnlClass(data.discipline.flagged.netPnl))}>{money(data.discipline.flagged.netPnl, currency, { signed: true })}</dd>
+                    <dd className="text-xs text-navy-400">{data.discipline.flagged.closedTrades} closed · avg {money(data.discipline.flagged.expectancy, currency, { signed: true })}</dd>
+                  </div>
+                </dl>
+                {data.discipline.recent.length > 0 && (
+                  <ul className="mt-3 space-y-1 border-t border-navy-700 pt-3 text-xs">
+                    {data.discipline.recent.map((v) => (
+                      <li key={`${v.rule}-${v.tradeId}`}>
+                        <Link href={`/trades/${v.tradeId}`} className="text-navy-200 hover:text-white">
+                          <span className="text-navy-400">{v.date}</span> {v.symbol} — {RULE_LABELS[v.rule].toLowerCase()}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card>
+            ) : (
+              <Card>
+                <CardTitle>Plan discipline</CardTitle>
+                <p className="text-sm text-navy-300">
+                  Add risk rules to an account — a daily loss limit, max trades per day or max risk per trade — and EDGEFORGE will flag every
+                  trade that breaks them and show what rule-breaking costs you.
+                </p>
+                <Link href="/accounts" className="mt-3 inline-block text-sm text-electric-soft hover:underline">Set risk rules →</Link>
+              </Card>
+            )}
             <Card>
               <CardTitle action={<Link href="/trades" className="text-xs text-electric-soft hover:underline">All trades →</Link>}>Recent closed trades</CardTitle>
               <ul className="divide-y divide-navy-700/60 text-sm">

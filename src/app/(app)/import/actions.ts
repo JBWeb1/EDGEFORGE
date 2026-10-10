@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { getSettings } from "@/lib/data/settings";
 import { bumpDataVersion } from "@/lib/data/sync";
 import { parseTradeCsv, type ParseResult } from "@/lib/import/csv";
 import { requireUser } from "@/lib/session";
@@ -28,7 +29,8 @@ export type ImportState =
 async function analyse(userId: string, accountId: string, csv: string) {
   const account = await prisma.tradingAccount.findFirst({ where: { id: accountId, userId } });
   if (!account) return { error: "Choose one of your accounts." } as const;
-  const parsed = parseTradeCsv(csv);
+  const { timeZone } = await getSettings(userId);
+  const parsed = parseTradeCsv(csv, { timeZone });
   const valid = parsed.rows.flatMap((r) => (r.ok ? [r] : []));
   const existing = valid.length
     ? await prisma.trade.findMany({

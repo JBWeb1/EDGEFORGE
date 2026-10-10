@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import Decimal from "decimal.js";
 import Papa from "papaparse";
+import { zonedTimeToUtc } from "@/lib/analytics/timezone";
 
 /**
  * Parses and validates a trade CSV. Nothing is written to the database here:
@@ -8,7 +9,8 @@ import Papa from "papaparse";
  *
  * Rules (also documented on the import page):
  * - Dates must be ISO 8601 (2026-03-02, 2026-03-02 14:30, 2026-03-02T14:30:00Z,
- *   2026-03-02T14:30:00+02:00). Without an offset, times are read as UTC.
+ *   2026-03-02T14:30:00+02:00). Without an offset, times are read in the
+ *   trader's time zone (UTC unless set in Settings).
  *   Ambiguous formats such as 03/02/2026 are rejected rather than guessed.
  * - Numbers use "." as the decimal separator. Currency symbols and thousands
  *   separators ("1,234.50") are tolerated.
@@ -89,7 +91,7 @@ export type ParseResult = {
 
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(\.\d{1,9})?)?)?\s*(Z|[+-]\d{2}:?\d{2})?$/i;
 
-export function parseIsoDate(value: string): Date | null {
+export function parseIsoDate(value: string, timeZone = "UTC"): Date | null {
   const m = DATE_RE.exec(value.trim());
   if (!m) return null;
   const [, y, mo, d, h = "00", mi = "00", s = "00", frac = "", tz] = m;
@@ -99,8 +101,9 @@ export function parseIsoDate(value: string): Date | null {
   const check = new Date(Date.UTC(year, month - 1, day));
   if (check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) return null;
   const ms = frac ? Math.round(Number(frac) * 1000) : 0;
+  if (!tz) return zonedTimeToUtc(year, month, day, hour, minute, second, ms, timeZone);
   let offsetMinutes = 0;
-  if (tz && tz.toUpperCase() !== "Z") {
+  if (tz.toUpperCase() !== "Z") {
     const digits = tz.replace(":", "");
     const sign = digits[0] === "-" ? -1 : 1;
     offsetMinutes = sign * (Number(digits.slice(1, 3)) * 60 + Number(digits.slice(3, 5)));
@@ -141,7 +144,7 @@ export function tradeFingerprint(t: Omit<ImportedTrade, "fingerprint" | "setup" 
   return createHash("sha256").update(parts.join("|")).digest("hex");
 }
 
-export function parseTradeCsv(text: string): ParseResult {
+export function parseTradeCsv(text: string, { timeZone = "UTC" }: { timeZone?: string } = {}): ParseResult {
   const parsed = Papa.parse<Record<string, string>>(text.replace(/^﻿/, ""), {
     header: true,
     skipEmptyLines: "greedy",
@@ -206,7 +209,7 @@ export function parseTradeCsv(text: string): ParseResult {
     const date = (f: Field, label: string) => {
       const v = get(f);
       if (!v) return null;
-      const d = parseIsoDate(v);
+      const d = parseIsoDate(v, timeZone);
       if (!d) errors.push(`${label} "${v}" is not an ISO 8601 date (e.g. 2026-03-02 14:30).`);
       return d;
     };

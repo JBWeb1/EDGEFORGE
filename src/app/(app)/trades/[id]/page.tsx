@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { LocalTime } from "@/components/local-time";
 import { Badge, Button, ButtonLink, Card, CardTitle, PageHeader, cn } from "@/components/ui";
+import { findViolations, RULE_LABELS } from "@/lib/analytics/rules";
 import { computeTradeResult, isClosed } from "@/lib/analytics/trade-math";
+import { prisma } from "@/lib/db";
+import { getSettings } from "@/lib/data/settings";
 import { getTrade, toTradeInput } from "@/lib/data/trades";
 import { formatDuration, money, plain, pnlClass, rMultiple, ratio } from "@/lib/format";
 import { requireUser } from "@/lib/session";
@@ -28,6 +31,22 @@ export default async function TradePage({ params }: PageProps<"/trades/[id]">) {
   if (!trade) notFound();
 
   const input = toTradeInput(trade);
+  const [account, siblings, { timeZone }] = await Promise.all([
+    prisma.tradingAccount.findFirst({ where: { id: trade.accountId, userId: user.id } }),
+    prisma.trade.findMany({ where: { accountId: trade.accountId, userId: user.id } }),
+    getSettings(user.id),
+  ]);
+  const violations = account
+    ? findViolations(
+        siblings.map(toTradeInput),
+        {
+          dailyLossLimit: account.dailyLossLimit?.toString() ?? null,
+          maxTradesPerDay: account.maxTradesPerDay,
+          maxRiskPerTrade: account.maxRiskPerTrade?.toString() ?? null,
+        },
+        timeZone,
+      ).violations.filter((v) => v.tradeId === trade.id)
+    : [];
   const result = isClosed(input) ? computeTradeResult(input) : null;
   const cur = trade.account.currency;
 
@@ -45,6 +64,18 @@ export default async function TradePage({ params }: PageProps<"/trades/[id]">) {
           </>
         }
       />
+      {violations.length > 0 && (
+        <Card className="mb-6 border-loss/50 bg-loss/5">
+          <CardTitle>Broke {violations.length === 1 ? "a rule" : `${violations.length} rules`} in your plan</CardTitle>
+          <ul className="space-y-1 text-sm">
+            {violations.map((v) => (
+              <li key={v.rule}>
+                <span className="font-medium text-loss">{RULE_LABELS[v.rule]}:</span> <span className="text-navy-200">{v.message}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>
           <CardTitle action={result ? <Badge tone={result.outcome === "WIN" ? "profit" : result.outcome === "LOSS" ? "loss" : "neutral"}>{result.outcome.toLowerCase()}</Badge> : <Badge tone="info">open</Badge>}>

@@ -7,8 +7,11 @@ import { cn } from "@/components/ui";
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/trades", label: "Journal" },
+  { href: "/calendar", label: "Calendar" },
+  { href: "/tools", label: "Position size" },
   { href: "/import", label: "Import" },
   { href: "/accounts", label: "Accounts" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export function Nav() {

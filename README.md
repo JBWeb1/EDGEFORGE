@@ -18,6 +18,12 @@
 | Dashboard: net P&L, win rate, profit factor, max drawdown, expectancy, payoff ratio, average R, streaks, equity curve, daily P&L | ✅ |
 | Strategy breakdowns by setup, instrument, weekday, rule discipline and emotional state | ✅ |
 | Rule-based insights, each showing the data behind it | ✅ |
+| Time-zone setting: trading days, calendar, rules, weekday/hour stats and CSV imports follow your local time | ✅ |
+| P&L calendar with daily and weekly totals | ✅ |
+| Risk rules per account (daily loss limit, max trades per day, max risk per trade) with automatic breach detection, a live "today" guardrail and the cost of rule-breaking | ✅ |
+| Position-size calculator (risk % or amount, lot step, multiplier, target) | ✅ |
+| Journal search and filters (setup, outcome, dates), filtered stats, pagination | ✅ |
+| CSV export (re-importable, with calculated columns) | ✅ |
 | Self-updating: new-version banner, live data sync across tabs and devices, live prices on open trades, automated dependency updates | ✅ |
 | AI coach, backtesting & replay, broker API sync, subscriptions | Planned (phases 3–5) |
 
@@ -35,7 +41,9 @@ All money math uses decimal arithmetic (`decimal.js`), not floating point. The e
 - **Date ranges**: the curve starts at the balance on the range's first day (starting balance plus everything realised before it).
 - Open trades (no exit) are listed in the journal but excluded from statistics.
 - Statistics never mix currencies. "All accounts" only appears when every account uses the same currency.
-- Weekday breakdowns use entry time in **UTC**. Dates are shown in each viewer's local time zone.
+- Trading days, the calendar, risk rules and weekday/hour breakdowns use the time zone in **Settings** (UTC by default). Individual timestamps are shown in each viewer's device time zone.
+- **Risk rules** are checked per account: *max risk* compares each trade's initial risk with the limit; *max trades* flags every trade beyond the limit on a trading day (by entry time); *daily loss* flags trades opened after that day's realised net P&L reached the limit.
+- **Position size** = risk budget ÷ (|entry − stop| × multiplier), rounded *down* to the size step, so the loss at the stop never exceeds the budget (fees and slippage excluded).
 - Insights only use groups with at least 5 closed trades, and present correlations, not diagnoses.
 
 ## Self-updating
@@ -104,7 +112,7 @@ src/components/         UI primitives, charts, logo
 ## Roadmap
 
 1. **Core journal** ✅ accounts, manual entry, CSV import, calculations, dashboard
-2. **Analytics** — user time zone setting, custom date ranges, more filters, reports, tags, screenshot uploads
+2. **Analytics** ✅ time zone, calendar, risk rules, position sizing, filters, export · next: tags, screenshot uploads, custom date ranges, PDF reports
 3. **Intelligence** — AI coach with structured access to calculated statistics (every claim cites trades), deeper psychology tracking
 4. **Advanced tools** — backtesting and replay, broker and exchange integrations with reconciliation, mobile polish
 5. **Commercial launch** — subscriptions (proposed Free / Pro R199 / Elite R399 / Team; prices to be tested), onboarding, security review, support

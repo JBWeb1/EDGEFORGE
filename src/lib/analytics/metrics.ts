@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import { zonedParts } from "./timezone";
 import type { TradeResult } from "./trade-math";
 
 /**
@@ -48,19 +49,23 @@ const sum = (values: Decimal[]) => values.reduce((acc, v) => acc.plus(v), ZERO);
 const mean = (values: Decimal[]) => (values.length ? sum(values).div(values.length) : null);
 
 export type EquityPoint = {
-  /** ISO date (UTC, YYYY-MM-DD) of the last trade in the bucket. */
+  /** Local trading day (YYYY-MM-DD in the trader's time zone). */
   date: string;
   equity: Decimal;
   pnl: Decimal;
   trades: number;
 };
 
-/** Daily equity curve (UTC days), starting from the starting balance. */
-export function dailyEquityCurve(results: TradeResult[], startingBalance: Decimal.Value = 0): EquityPoint[] {
+/** Daily equity curve by trading day in `timeZone`, starting from the starting balance. */
+export function dailyEquityCurve(
+  results: TradeResult[],
+  startingBalance: Decimal.Value = 0,
+  timeZone = "UTC",
+): EquityPoint[] {
   const points: EquityPoint[] = [];
   let equity = new Decimal(startingBalance);
   for (const r of results) {
-    const date = r.trade.exitAt!.toISOString().slice(0, 10);
+    const date = zonedParts(r.trade.exitAt!, timeZone).date;
     equity = equity.plus(r.netPnl);
     const last = points[points.length - 1];
     if (last && last.date === date) {
@@ -175,8 +180,8 @@ export type GroupBy = "setup" | "symbol" | "weekday" | "direction" | "emotion" |
 
 export const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-/** Grouping key for a trade. Time-based groups use the entry time in UTC. */
-export function groupKey(r: TradeResult, by: GroupBy): string {
+/** Grouping key for a trade. Time-based groups use the entry time in `timeZone`. */
+export function groupKey(r: TradeResult, by: GroupBy, timeZone = "UTC"): string {
   const t = r.trade;
   switch (by) {
     case "setup":
@@ -184,9 +189,9 @@ export function groupKey(r: TradeResult, by: GroupBy): string {
     case "symbol":
       return t.symbol.toUpperCase();
     case "weekday":
-      return WEEKDAYS[t.entryAt.getUTCDay()];
+      return WEEKDAYS[zonedParts(t.entryAt, timeZone).weekday];
     case "hour":
-      return `${String(t.entryAt.getUTCHours()).padStart(2, "0")}:00`;
+      return `${String(zonedParts(t.entryAt, timeZone).hour).padStart(2, "0")}:00`;
     case "direction":
       return t.direction === "LONG" ? "Long" : "Short";
     case "emotion":
@@ -196,10 +201,10 @@ export function groupKey(r: TradeResult, by: GroupBy): string {
   }
 }
 
-export function breakdown(results: TradeResult[], by: GroupBy): BreakdownRow[] {
+export function breakdown(results: TradeResult[], by: GroupBy, timeZone = "UTC"): BreakdownRow[] {
   const groups = new Map<string, TradeResult[]>();
   for (const r of results) {
-    const key = groupKey(r, by);
+    const key = groupKey(r, by, timeZone);
     const list = groups.get(key);
     if (list) list.push(r);
     else groups.set(key, [r]);

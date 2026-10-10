@@ -62,6 +62,13 @@ function moveValue(trade: TradeInput, priceDistance: Decimal): Decimal {
     .mul(new Decimal(trade.multiplier ?? 1));
 }
 
+/** Money at risk between entry and stop loss; null without a usable stop. Works for open trades too. */
+export function computeInitialRisk(trade: TradeInput): Decimal | null {
+  if (trade.stopLoss === null || trade.stopLoss === undefined) return null;
+  const stopDistance = new Decimal(trade.entryPrice).minus(new Decimal(trade.stopLoss)).abs();
+  return stopDistance.gt(0) ? moveValue(trade, stopDistance) : null;
+}
+
 export function computeTradeResult(trade: ClosedTrade): TradeResult {
   const entry = new Decimal(trade.entryPrice);
   const exit = new Decimal(trade.exitPrice);
@@ -70,16 +77,11 @@ export function computeTradeResult(trade: ClosedTrade): TradeResult {
   const grossPnl = moveValue(trade, exit.minus(entry)).mul(sign(trade.direction));
   const netPnl = grossPnl.minus(fees);
 
-  let initialRisk: Decimal | null = null;
+  const initialRisk = computeInitialRisk(trade);
   let plannedRewardRisk: Decimal | null = null;
-  if (trade.stopLoss !== null && trade.stopLoss !== undefined) {
-    const stopDistance = entry.minus(new Decimal(trade.stopLoss)).abs();
-    if (stopDistance.gt(0)) {
-      initialRisk = moveValue(trade, stopDistance);
-      if (trade.takeProfit !== null && trade.takeProfit !== undefined) {
-        plannedRewardRisk = new Decimal(trade.takeProfit).minus(entry).abs().div(stopDistance);
-      }
-    }
+  if (initialRisk && trade.takeProfit !== null && trade.takeProfit !== undefined) {
+    const stopDistance = entry.minus(new Decimal(trade.stopLoss!)).abs();
+    plannedRewardRisk = new Decimal(trade.takeProfit).minus(entry).abs().div(stopDistance);
   }
 
   return {

@@ -86,6 +86,17 @@ export const tradeSchema = z
 
 export type TradeFormInput = z.infer<typeof tradeSchema>;
 
+const optionalMoney = (label: string) =>
+  z.preprocess(
+    blankToNull,
+    z
+      .string()
+      .trim()
+      .regex(/^\d+(\.\d{1,2})?$/, `${label} must be a positive amount with up to 2 decimals.`)
+      .refine((v) => Number(v) > 0, `${label} must be greater than zero.`)
+      .nullable(),
+  );
+
 export const CURRENCIES = ["USD", "ZAR", "EUR", "GBP", "AUD", "CAD", "JPY", "CHF", "USDT"] as const;
 
 export const accountSchema = z.object({
@@ -96,6 +107,12 @@ export const accountSchema = z.object({
     (v) => blankToNull(v) ?? "0",
     z.string().trim().regex(/^\d+(\.\d{1,2})?$/, "Starting balance must be zero or a positive amount with up to 2 decimals."),
   ),
+  dailyLossLimit: optionalMoney("Daily loss limit"),
+  maxTradesPerDay: z.preprocess(
+    (v) => (blankToNull(v) === null ? null : Number(v)),
+    z.number({ error: "Max trades per day must be a whole number." }).int("Max trades per day must be a whole number.").min(1).max(1000).nullable(),
+  ),
+  maxRiskPerTrade: optionalMoney("Max risk per trade"),
 });
 
 export type FieldErrors = Record<string, string[] | undefined>;
@@ -118,3 +135,17 @@ export function fieldErrors(error: z.ZodError): FieldErrors {
   }
   return out;
 }
+
+export const settingsSchema = z.object({
+  timeZone: z
+    .string()
+    .trim()
+    .refine((tz) => {
+      try {
+        new Intl.DateTimeFormat("en-US", { timeZone: tz });
+        return true;
+      } catch {
+        return false;
+      }
+    }, "Choose a valid time zone."),
+});

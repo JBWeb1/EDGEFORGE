@@ -28,6 +28,7 @@ model User {
   trades          Trade[]
   importBatches   ImportBatch[]
   syncState       SyncState?
+  settings        UserSettings?
 
   @@map("user")
 }
@@ -83,15 +84,21 @@ model Verification {
 // ─── Trading journal ────────────────────────────────────────────────────────
 
 model TradingAccount {
-  id              String   @id @default(cuid())
+  id              String  @id @default(cuid())
   userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   name            String
   broker          String?
-  currency        String   @default("USD")
-  startingBalance Decimal  @default(0) @db.Decimal(20, 2)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  currency        String  @default("USD")
+  startingBalance Decimal @default(0) @db.Decimal(20, 2)
+
+  // Risk rules from the trader's plan, in account currency. Null = no rule.
+  dailyLossLimit  Decimal? @db.Decimal(20, 2)
+  maxTradesPerDay Int?
+  maxRiskPerTrade Decimal? @db.Decimal(20, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   trades        Trade[]
   importBatches ImportBatch[]
@@ -194,4 +201,14 @@ model SyncState {
   updatedAt DateTime @updatedAt
 
   @@map("sync_state")
+}
+
+model UserSettings {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // IANA time zone used for trading days, weekday/hour stats and CSV imports.
+  timeZone  String   @default("UTC")
+  updatedAt DateTime @updatedAt
+
+  @@map("user_settings")
 }

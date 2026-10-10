@@ -17,6 +17,16 @@ export function money(v: Num, currency = "USD", { signed = false } = {}) {
   return `${sign}${formatted}${currency === "USDT" ? " USDT" : ""}`;
 }
 
+/** Short signed amount without currency for tight spaces: +67, -404, +1.1k. */
+export function compactNumber(v: Num) {
+  const n = toNumber(v);
+  if (n === null) return "—";
+  const text = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: Math.abs(n) >= 1000 ? 1 : 0 })
+    .format(Math.abs(n))
+    .toLowerCase();
+  return `${n < 0 ? "-" : n > 0 ? "+" : ""}${text}`;
+}
+
 export function percent(v: number | null | undefined, digits = 1) {
   return v === null || v === undefined ? "—" : `${v.toFixed(digits)}%`;
 }

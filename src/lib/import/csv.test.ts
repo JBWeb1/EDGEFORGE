@@ -7,6 +7,11 @@ describe("parseIsoDate", () => {
     assert.equal(parseIsoDate("2026-03-02 14:30")!.toISOString(), "2026-03-02T14:30:00.000Z");
     assert.equal(parseIsoDate("2026-03-02")!.toISOString(), "2026-03-02T00:00:00.000Z");
   });
+  it("reads times without offset in the trader's time zone", () => {
+    assert.equal(parseIsoDate("2026-03-02 14:30", "Africa/Johannesburg")!.toISOString(), "2026-03-02T12:30:00.000Z");
+    // An explicit offset always wins.
+    assert.equal(parseIsoDate("2026-03-02T14:30:00Z", "Africa/Johannesburg")!.toISOString(), "2026-03-02T14:30:00.000Z");
+  });
   it("applies offsets", () => {
     assert.equal(parseIsoDate("2026-03-02T14:30:00+02:00")!.toISOString(), "2026-03-02T12:30:00.000Z");
     assert.equal(parseIsoDate("2026-03-02T14:30:00.250Z")!.toISOString(), "2026-03-02T14:30:00.250Z");

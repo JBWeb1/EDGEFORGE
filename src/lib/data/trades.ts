@@ -7,15 +7,34 @@ export type TradeFilter = {
   accountId?: string;
   status?: "open" | "closed";
   symbol?: string;
+  /** Matches symbol, setup, strategy or notes (case-insensitive). */
+  q?: string;
+  setup?: string;
+  /** Entry time window, as UTC instants. */
+  from?: Date;
+  to?: Date;
 };
 
 export function listTrades(userId: string, filter: TradeFilter = {}) {
+  const q = filter.q?.trim();
   return prisma.trade.findMany({
     where: {
       userId,
       ...(filter.accountId ? { accountId: filter.accountId } : {}),
       ...(filter.status === "open" ? { exitPrice: null } : filter.status === "closed" ? { exitPrice: { not: null } } : {}),
       ...(filter.symbol ? { symbol: filter.symbol.toUpperCase() } : {}),
+      ...(filter.setup ? { setup: filter.setup } : {}),
+      ...(filter.from || filter.to ? { entryAt: { ...(filter.from ? { gte: filter.from } : {}), ...(filter.to ? { lt: filter.to } : {}) } } : {}),
+      ...(q
+        ? {
+            OR: [
+              { symbol: { contains: q, mode: "insensitive" as const } },
+              { setup: { contains: q, mode: "insensitive" as const } },
+              { strategy: { contains: q, mode: "insensitive" as const } },
+              { notes: { contains: q, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
     },
     orderBy: [{ entryAt: "desc" }, { id: "desc" }],
     include: { account: { select: { name: true, currency: true } } },

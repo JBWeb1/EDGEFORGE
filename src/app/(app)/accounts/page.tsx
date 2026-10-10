@@ -36,6 +36,9 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
                     currency: a.currency,
                     startingBalance: a.startingBalance.toString(),
                     trades: a._count.trades,
+                    dailyLossLimit: a.dailyLossLimit?.toString() ?? null,
+                    maxTradesPerDay: a.maxTradesPerDay,
+                    maxRiskPerTrade: a.maxRiskPerTrade?.toString() ?? null,
                   }}
                 />
               ))}

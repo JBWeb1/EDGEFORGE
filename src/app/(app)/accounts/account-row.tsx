@@ -7,7 +7,17 @@ import { AccountForm } from "./account-form";
 import { deleteAccount } from "./actions";
 
 type Props = {
-  account: { id: string; name: string; broker: string | null; currency: string; startingBalance: string; trades: number };
+  account: {
+    id: string;
+    name: string;
+    broker: string | null;
+    currency: string;
+    startingBalance: string;
+    trades: number;
+    dailyLossLimit: string | null;
+    maxTradesPerDay: number | null;
+    maxRiskPerTrade: string | null;
+  };
 };
 
 export function AccountRow({ account }: Props) {
@@ -18,7 +28,15 @@ export function AccountRow({ account }: Props) {
         <div>
           <p className="font-medium text-white">{account.name}</p>
           <p className="text-xs text-navy-400">
-            {[account.broker, account.currency, `start ${money(account.startingBalance, account.currency)}`, `${account.trades} trades`]
+            {[
+              account.broker,
+              account.currency,
+              `start ${money(account.startingBalance, account.currency)}`,
+              `${account.trades} trades`,
+              account.dailyLossLimit && `daily loss limit ${money(account.dailyLossLimit, account.currency)}`,
+              account.maxTradesPerDay && `max ${account.maxTradesPerDay} trades/day`,
+              account.maxRiskPerTrade && `max risk ${money(account.maxRiskPerTrade, account.currency)}`,
+            ]
               .filter(Boolean)
               .join(" · ")}
           </p>

@@ -203,6 +203,17 @@ describe("breakdown", () => {
     assert.equal(rows[0].winRate, 50);
   });
 
+  it("uses the trader's time zone for weekdays and hours", () => {
+    // Friday 23:30 UTC is Saturday 01:30 in Johannesburg.
+    const results = computeClosedResults([
+      pnlTrade(1, { entryAt: new Date("2026-03-06T23:30:00Z"), exitAt: new Date("2026-03-06T23:45:00Z") }),
+    ]);
+    assert.equal(breakdown(results, "weekday")[0].key, "Friday");
+    assert.equal(breakdown(results, "weekday", "Africa/Johannesburg")[0].key, "Saturday");
+    assert.equal(breakdown(results, "hour", "Africa/Johannesburg")[0].key, "01:00");
+    assert.equal(dailyEquityCurve(results, 0, "Africa/Johannesburg")[0].date, "2026-03-07");
+  });
+
   it("orders weekdays by calendar", () => {
     const results = computeClosedResults([
       pnlTrade(1, { entryAt: new Date("2026-03-06T10:00:00Z"), exitAt: new Date("2026-03-06T11:00:00Z") }), // Fri
