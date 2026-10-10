@@ -1,0 +1,183 @@
+// EDGEFORGE data model.
+// Every trading record is owned by a user (userId) so that data can be
+// isolated per user in every query.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Authentication (Better Auth) ───────────────────────────────────────────
+
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  tradingAccounts TradingAccount[]
+  trades          Trade[]
+  importBatches   ImportBatch[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+// Authentication provider account (credentials, OAuth). Not a trading account.
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ─── Trading journal ────────────────────────────────────────────────────────
+
+model TradingAccount {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  broker          String?
+  currency        String   @default("USD")
+  startingBalance Decimal  @default(0) @db.Decimal(20, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  trades        Trade[]
+  importBatches ImportBatch[]
+
+  @@index([userId])
+  @@map("trading_account")
+}
+
+enum TradeDirection {
+  LONG
+  SHORT
+}
+
+enum Emotion {
+  CALM
+  CONFIDENT
+  FOMO
+  FEARFUL
+  GREEDY
+  FRUSTRATED
+  REVENGE
+  BORED
+}
+
+model Trade {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId String
+  account   TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  symbol     String
+  direction  TradeDirection
+  quantity   Decimal        @db.Decimal(24, 8)
+  // Account-currency value of a 1.0 price move per unit (1 for stocks/crypto,
+  // e.g. 50 for one ES futures contract).
+  multiplier Decimal        @default(1) @db.Decimal(24, 8)
+
+  entryPrice Decimal   @db.Decimal(24, 8)
+  entryAt    DateTime
+  // A trade without an exit price is open and excluded from performance stats.
+  exitPrice  Decimal?  @db.Decimal(24, 8)
+  exitAt     DateTime?
+
+  stopLoss   Decimal? @db.Decimal(24, 8)
+  takeProfit Decimal? @db.Decimal(24, 8)
+  // Total commissions and fees for the round trip, in account currency.
+  fees       Decimal  @default(0) @db.Decimal(20, 2)
+
+  setup         String?
+  strategy      String?
+  emotion       Emotion?
+  followedRules Boolean?
+  confidence    Int? // 1-5
+  notes         String?
+  screenshotUrl String?
+
+  importBatchId String?
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  // Deterministic hash of the trade's identifying fields, used to skip
+  // duplicates when the same file is imported twice.
+  fingerprint   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([accountId, fingerprint])
+  @@index([userId, exitAt])
+  @@index([accountId])
+  @@map("trade")
+}
+
+model ImportBatch {
+  id             String         @id @default(cuid())
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        TradingAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  fileName       String
+  totalRows      Int
+  importedCount  Int
+  duplicateCount Int
+  invalidCount   Int
+  createdAt      DateTime       @default(now())
+
+  trades Trade[]
+
+  @@index([userId])
+  @@map("import_batch")
+}

@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+/* EDGEFORGE design tokens: dark navy surfaces, electric blue for interaction,
+   and the logo's cyan → magenta gradient for brand moments. */
+@theme {
+  --color-navy-950: #050814;
+  --color-navy-900: #070b18;
+  --color-navy-850: #0a1022;
+  --color-navy-800: #0e162d;
+  --color-navy-700: #16213f;
+  --color-navy-600: #22305a;
+  --color-navy-400: #5b6a92;
+  --color-navy-300: #8d9abd;
+  --color-navy-200: #c3cbe2;
+
+  --color-electric: #2f7bff;
+  --color-electric-soft: #5b97ff;
+  --color-brand-cyan: #12e0ff;
+  --color-brand-violet: #6e6bff;
+  --color-brand-magenta: #e11bff;
+
+  --color-profit: #22c55e;
+  --color-loss: #f43f5e;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-navy-900);
+  color: var(--color-navy-200);
+}
+
+.brand-gradient {
+  background-image: linear-gradient(120deg, var(--color-brand-cyan), var(--color-brand-violet) 50%, var(--color-brand-magenta));
+}
+
+.brand-gradient-text {
+  background-image: linear-gradient(120deg, var(--color-brand-cyan), var(--color-brand-violet) 50%, var(--color-brand-magenta));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+}
