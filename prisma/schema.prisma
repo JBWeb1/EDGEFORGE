@@ -27,6 +27,7 @@ model User {
   tradingAccounts TradingAccount[]
   trades          Trade[]
   importBatches   ImportBatch[]
+  syncState       SyncState?
 
   @@map("user")
 }
@@ -180,4 +181,17 @@ model ImportBatch {
 
   @@index([userId])
   @@map("import_batch")
+}
+
+// ─── Live sync ──────────────────────────────────────────────────────────────
+
+// A per-user counter bumped by every change to journal data. Open browser tabs
+// poll it and refresh themselves when it moves.
+model SyncState {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  version   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@map("sync_state")
 }

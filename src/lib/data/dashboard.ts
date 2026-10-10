@@ -35,7 +35,9 @@ export async function getDashboardData(
     where: { userId, accountId: { in: scope.map((a) => a.id) } },
   });
   const all = computeClosedResults(trades.map(toTradeInput));
-  const openTrades = trades.filter((t) => t.exitPrice === null).length;
+  const open = trades
+    .filter((t) => t.exitPrice === null)
+    .sort((a, b) => b.entryAt.getTime() - a.entryAt.getTime());
 
   // Within a date range, the curve starts at the balance on the range's first
   // day: starting balance plus everything realised before it.
@@ -52,7 +54,18 @@ export async function getDashboardData(
     canCombine,
     selectedAccountId: selected?.id ?? null,
     currency,
-    openTrades,
+    openTrades: open.length,
+    openPositions: open.map((t) => ({
+      id: t.id,
+      symbol: t.symbol,
+      direction: t.direction,
+      quantity: t.quantity.toString(),
+      multiplier: t.multiplier.toString(),
+      entryPrice: t.entryPrice.toString(),
+      stopLoss: t.stopLoss?.toString() ?? null,
+      fees: t.fees.toString(),
+      entryAt: t.entryAt.toISOString(),
+    })),
     summary: summarize(results, rangeStart),
     curve: dailyEquityCurve(results, rangeStart),
     rangeStartBalance: rangeStart,

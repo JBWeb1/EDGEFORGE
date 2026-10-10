@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { DailyPnlChart, EquityChart } from "@/components/charts";
 import { LocalTime } from "@/components/local-time";
+import { OpenPositions } from "@/components/open-positions";
 import { ButtonLink, Card, CardTitle, EmptyState, PageHeader, Stat, cn } from "@/components/ui";
 import type { Insight } from "@/lib/analytics/insights";
 import type { BreakdownRow } from "@/lib/analytics/metrics";
@@ -126,6 +127,12 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       </div>
       {!data.canCombine && (
         <p className="mb-4 text-xs text-navy-400">Your accounts use different currencies, so statistics are shown one account at a time.</p>
+      )}
+
+      {data.openPositions.length > 0 && (
+        <div className="mb-6">
+          <OpenPositions positions={data.openPositions} currency={currency} />
+        </div>
       )}
 
       {s.closedTrades === 0 ? (

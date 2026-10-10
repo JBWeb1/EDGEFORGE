@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { bumpDataVersion } from "@/lib/data/sync";
 import { parseTradeCsv, type ParseResult } from "@/lib/import/csv";
 import { requireUser } from "@/lib/session";
 
@@ -109,6 +110,7 @@ export async function importCsv(prev: ImportState, formData: FormData): Promise<
       where: { id: batch.id },
       data: { importedCount: count, duplicateCount: valid.length - count },
     });
+    if (count) await bumpDataVersion(user.id, tx);
     return count;
   });
 

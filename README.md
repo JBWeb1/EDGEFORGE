@@ -18,6 +18,7 @@
 | Dashboard: net P&L, win rate, profit factor, max drawdown, expectancy, payoff ratio, average R, streaks, equity curve, daily P&L | ✅ |
 | Strategy breakdowns by setup, instrument, weekday, rule discipline and emotional state | ✅ |
 | Rule-based insights, each showing the data behind it | ✅ |
+| Self-updating: new-version banner, live data sync across tabs and devices, live prices on open trades, automated dependency updates | ✅ |
 | AI coach, backtesting & replay, broker API sync, subscriptions | Planned (phases 3–5) |
 
 ## How the numbers are calculated
@@ -36,6 +37,18 @@ All money math uses decimal arithmetic (`decimal.js`), not floating point. The e
 - Statistics never mix currencies. "All accounts" only appears when every account uses the same currency.
 - Weekday breakdowns use entry time in **UTC**. Dates are shown in each viewer's local time zone.
 - Insights only use groups with at least 5 closed trades, and present correlations, not diagnoses.
+
+## Self-updating
+
+EDGEFORGE keeps itself current in four ways:
+
+| What | How it works |
+| --- | --- |
+| **New versions** | Each build has an id (from `APP_BUILD_ID`, the git commit, or the package version). Open tabs check `/api/version` every 5 minutes and when you return to the tab. If a newer build is live they show *"A new version of EDGEFORGE is available"* with a Reload button. Next.js `deploymentId` also makes an outdated tab hard-reload on its next navigation instead of erroring. |
+| **Live data** | Every change to accounts, trades or imports bumps a per-user version (`sync_state` table). Pages poll `/api/sync` every 15 seconds while visible and re-render when it moves, so a trade logged on your phone appears on your laptop. Tabs in the same browser update immediately. Forms you're typing in are never refreshed under you. |
+| **Live prices** | Open trades on the dashboard show the latest price and unrealised P&L (after fees), refreshed every 20 seconds. Crypto pairs (e.g. `BTCUSDT`) use Binance's public API, no key needed. Stocks and forex use [Finnhub](https://finnhub.io) when `FINNHUB_API_KEY` is set. Futures and other contracts (multiplier ≠ 1) are never priced by guessing a same-named ticker. Prices are cached for 15 seconds per server. |
+| **Dependencies** | Dependabot opens grouped weekly pull requests for npm packages (monthly for GitHub Actions), only for releases that have been public for 14 days. CI runs migrations, lint, typecheck, tests and a production build on every pull request. |
+| **Database** | `npm run vercel-build` (used automatically by Vercel) and `npm run start:migrate` apply pending migrations before the new version starts. |
 
 ## Tech stack
 
@@ -65,12 +78,14 @@ Sign up, add a trading account, then log trades or import [`samples/sample-trade
 | `npm run lint` · `npm run typecheck` | Static checks |
 | `npm run db:migrate` · `db:deploy` · `db:generate` | Prisma migrations (dev / production) and client generation |
 | `npm run sample:csv` | Regenerate the sample CSV |
+| `npm run start:migrate` · `npm run vercel-build` | Apply migrations, then start / build (for deploys) |
 
 ## Security
 
 - Every query and mutation goes through `requireUser()` ([`src/lib/session.ts`](src/lib/session.ts)) and is scoped by the signed-in user's id. Server Actions re-check authorization themselves. The proxy redirect is only a convenience.
 - Passwords are hashed by Better Auth. Sessions use HTTP-only cookies.
 - EDGEFORGE never asks for broker credentials. Imports are files the user chooses to upload, validated row by row before anything is saved.
+- `/api/prices` only looks up symbols from the user's own open trades, so it can't be used as an open market-data proxy.
 - Before a commercial launch: add rate limiting in front of the auth endpoints, email verification, password reset, a Content Security Policy, and an external security review.
 
 ## Project layout
@@ -79,6 +94,7 @@ Sign up, add a trading account, then log trades or import [`samples/sample-trade
 prisma/                 schema and migrations
 src/lib/analytics/      trade math, metrics, insights (+ tests)
 src/lib/import/         CSV parsing and validation (+ tests)
+src/lib/prices/         market-data routing, providers, caching (+ tests)
 src/lib/data/           data access (always user-scoped)
 src/app/(auth)/         sign in / sign up
 src/app/(app)/          dashboard, journal, import, accounts

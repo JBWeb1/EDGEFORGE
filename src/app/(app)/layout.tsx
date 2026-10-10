@@ -1,11 +1,14 @@
 import Link from "next/link";
+import { LiveSync } from "@/components/live-sync";
 import { Logo } from "@/components/logo";
+import { getDataVersion } from "@/lib/data/sync";
 import { requireUser } from "@/lib/session";
 import { signOut } from "../(auth)/actions";
 import { Nav } from "./nav";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  const version = await getDataVersion(user.id);
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className="flex flex-col gap-4 border-b border-navy-700 bg-navy-950/70 p-4 md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:border-b-0 md:border-r md:p-5">
@@ -13,6 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Logo />
         </Link>
         <Nav />
+        <LiveSync version={version} />
         <div className="mt-auto hidden border-t border-navy-700 pt-4 md:block">
           <p className="truncate text-sm font-medium text-white">{user.name}</p>
           <p className="truncate text-xs text-navy-400">{user.email}</p>

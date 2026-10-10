@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
+import { bumpDataVersion } from "@/lib/data/sync";
 import { requireUser } from "@/lib/session";
 import { accountSchema, fieldErrors, type FormState } from "@/lib/validation";
 
@@ -17,6 +18,7 @@ export async function saveAccount(_: FormState, formData: FormData): Promise<For
   } else {
     await prisma.tradingAccount.create({ data: { ...parsed.data, userId: user.id } });
   }
+  await bumpDataVersion(user.id);
   revalidatePath("/", "layout");
   return { ok: true, message: "Account saved." };
 }
@@ -25,6 +27,7 @@ export async function deleteAccount(formData: FormData) {
   const user = await requireUser();
   const id = String(formData.get("id") ?? "");
   // Cascades to the account's trades and import history.
-  await prisma.tradingAccount.deleteMany({ where: { id, userId: user.id } });
+  const { count } = await prisma.tradingAccount.deleteMany({ where: { id, userId: user.id } });
+  if (count) await bumpDataVersion(user.id);
   revalidatePath("/", "layout");
 }

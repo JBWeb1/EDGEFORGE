@@ -1,0 +1,32 @@
+# Keeps dependencies current. Every update arrives as a pull request that CI
+# (lint, typecheck, tests, build) must pass before anyone merges it.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # Only propose releases that have been public for two weeks, so broken or
+    # compromised versions are usually caught by others first.
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 10
+    groups:
+      framework:
+        patterns: ["next", "eslint-config-next", "react", "react-dom", "@types/react", "@types/react-dom"]
+      prisma:
+        patterns: ["prisma", "@prisma/*"]
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 14
+    commit-message:
+      prefix: "ci"

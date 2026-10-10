@@ -7,13 +7,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test \"src/**/*.test.ts\"",
+    "test": "tsx --conditions=react-server --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "postinstall": "prisma generate",
-    "sample:csv": "tsx scripts/generate-sample-csv.ts"
+    "sample:csv": "tsx scripts/generate-sample-csv.ts",
+    "vercel-build": "prisma migrate deploy && next build",
+    "start:migrate": "prisma migrate deploy && next start"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",

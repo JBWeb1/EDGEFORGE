@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { bumpDataVersion } from "@/lib/data/sync";
 import { requireUser } from "@/lib/session";
 import { fieldErrors, tradeSchema, type FormState } from "@/lib/validation";
 
@@ -38,13 +39,15 @@ export async function saveTrade(prev: FormState, formData: FormData): Promise<Fo
     const trade = await prisma.trade.create({ data: { ...parsed.data, userId: user.id } });
     tradeId = trade.id;
   }
+  await bumpDataVersion(user.id);
   revalidatePath("/", "layout");
   redirect(`/trades/${tradeId}`);
 }
 
 export async function deleteTrade(formData: FormData) {
   const user = await requireUser();
-  await prisma.trade.deleteMany({ where: { id: String(formData.get("id") ?? ""), userId: user.id } });
+  const { count } = await prisma.trade.deleteMany({ where: { id: String(formData.get("id") ?? ""), userId: user.id } });
+  if (count) await bumpDataVersion(user.id);
   revalidatePath("/", "layout");
   redirect("/trades");
 }
