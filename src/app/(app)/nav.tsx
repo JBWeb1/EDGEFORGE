@@ -6,6 +6,7 @@ import { cn } from "@/components/ui";
 
 const LINKS: { href: string; label: string; match?: string }[] = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/coach", label: "AI coach" },
   { href: "/trades", label: "Journal" },
   { href: "/calendar", label: "Calendar" },
   { href: "/days/today", label: "Daily journal", match: "/days" },

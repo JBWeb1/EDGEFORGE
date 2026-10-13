@@ -24,6 +24,10 @@
 | Position-size calculator (risk % or amount, lot step, multiplier, target) | ✅ |
 | Journal search and filters (setup, outcome, dates), filtered stats, pagination | ✅ |
 | CSV export (re-importable, with calculated columns) | ✅ |
+| **AI trading coach** (Claude): answers questions about your own journal, cites the trades behind each claim, daily question limit | ✅ |
+| Daily journal: pre-market plan, post-session review and mood per trading day, linked from the calendar | ✅ |
+| Trade tags with filters, per-tag statistics, and CSV import/export | ✅ |
+| Monte Carlo simulator: range of outcomes, drawdown and losing-streak odds from your own results | ✅ |
 | Self-updating: new-version banner, live data sync across tabs and devices, live prices on open trades, automated dependency updates | ✅ |
 | AI coach, backtesting & replay, broker API sync, subscriptions | Planned (phases 3–5) |
 
@@ -45,6 +49,15 @@ All money math uses decimal arithmetic (`decimal.js`), not floating point. The e
 - **Risk rules** are checked per account: *max risk* compares each trade's initial risk with the limit; *max trades* flags every trade beyond the limit on a trading day (by entry time); *daily loss* flags trades opened after that day's realised net P&L reached the limit.
 - **Position size** = risk budget ÷ (|entry − stop| × multiplier), rounded *down* to the size step, so the loss at the stop never exceeds the budget (fees and slippage excluded).
 - Insights only use groups with at least 5 closed trades, and present correlations, not diagnoses.
+
+## AI trading coach
+
+The coach (`/coach`) sends Claude (`claude-opus-5-5`) a compact JSON "data pack" built from the user's own journal: per-account statistics, breakdowns, risk-rule breaches, the last 30 daily journal entries, and up to the 300 most recent trades, each with a short reference (`T1` = most recent). The system prompt ([`src/lib/coach/prompt.ts`](src/lib/coach/prompt.ts)) requires every claim to come from that data, citations like `[T12]` (rendered as links to the trade), honesty about small samples, correlations rather than diagnoses, and no market predictions or financial advice. Journal text is treated as data, not instructions.
+
+- Answers stream to the browser. Prompt caching keeps follow-up questions cheap. Effort is set to `medium`.
+- Server-side refusal fallback (`fallbacks: "default"`) is enabled, so a safety decline is retried on Anthropic's recommended fallback model.
+- Each user gets `COACH_DAILY_LIMIT` questions per trading day (default 30). Failed requests don't count.
+- Set `ANTHROPIC_API_KEY` to enable it; without a key the page explains how.
 
 ## Self-updating
 
@@ -103,6 +116,7 @@ prisma/                 schema and migrations
 src/lib/analytics/      trade math, metrics, insights (+ tests)
 src/lib/import/         CSV parsing and validation (+ tests)
 src/lib/prices/         market-data routing, providers, caching (+ tests)
+src/lib/coach/          AI coach prompt, data pack, response formatting (+ tests)
 src/lib/data/           data access (always user-scoped)
 src/app/(auth)/         sign in / sign up
 src/app/(app)/          dashboard, journal, import, accounts
@@ -113,7 +127,7 @@ src/components/         UI primitives, charts, logo
 
 1. **Core journal** ✅ accounts, manual entry, CSV import, calculations, dashboard
 2. **Analytics** ✅ time zone, calendar, risk rules, position sizing, filters, export · next: tags, screenshot uploads, custom date ranges, PDF reports
-3. **Intelligence** — AI coach with structured access to calculated statistics (every claim cites trades), deeper psychology tracking
+3. **Intelligence** ✅ AI coach, daily journal, tags, Monte Carlo · next: weekly AI review emails, playbooks with entry checklists
 4. **Advanced tools** — backtesting and replay, broker and exchange integrations with reconciliation, mobile polish
 5. **Commercial launch** — subscriptions (proposed Free / Pro R199 / Elite R399 / Team; prices to be tested), onboarding, security review, support
 
