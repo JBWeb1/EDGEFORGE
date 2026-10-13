@@ -232,6 +232,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
             <BreakdownTable title="By instrument" rows={data.bySymbol} currency={currency} />
             <BreakdownTable title="By weekday" rows={data.byWeekday} currency={currency} note={`Entry time in ${data.timeZone.replace(/_/g, " ")}.`} />
             <BreakdownTable title="By hour of entry" rows={data.byHour} currency={currency} note={`Entry time in ${data.timeZone.replace(/_/g, " ")}.`} />
+ <BreakdownTable title="By tag" rows={data.byTag} currency={currency} note="A trade with several tags counts in each." />
             <BreakdownTable title="Rule discipline" rows={data.byRules} currency={currency} />
             <BreakdownTable title="Emotional state" rows={data.byEmotion} currency={currency} note="Correlations in your journal, not a diagnosis." />
             {data.discipline ? (

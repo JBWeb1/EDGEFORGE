@@ -176,12 +176,12 @@ export type BreakdownRow = {
   averageR: number | null;
 };
 
-export type GroupBy = "setup" | "symbol" | "weekday" | "direction" | "emotion" | "rules" | "hour";
+export type GroupBy = "setup" | "symbol" | "weekday" | "direction" | "emotion" | "rules" | "hour" | "tag";
 
 export const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 /** Grouping key for a trade. Time-based groups use the entry time in `timeZone`. */
-export function groupKey(r: TradeResult, by: GroupBy, timeZone = "UTC"): string {
+export function groupKey(r: TradeResult, by: Exclude<GroupBy, "tag">, timeZone = "UTC"): string {
   const t = r.trade;
   switch (by) {
     case "setup":
@@ -201,13 +201,20 @@ export function groupKey(r: TradeResult, by: GroupBy, timeZone = "UTC"): string 
   }
 }
 
+/** Groups a trade belongs to. Only tags can put a trade in several groups. */
+export function groupKeys(r: TradeResult, by: GroupBy, timeZone = "UTC"): string[] {
+  if (by === "tag") return r.trade.tags?.length ? r.trade.tags : ["Untagged"];
+  return [groupKey(r, by, timeZone)];
+}
+
 export function breakdown(results: TradeResult[], by: GroupBy, timeZone = "UTC"): BreakdownRow[] {
   const groups = new Map<string, TradeResult[]>();
   for (const r of results) {
-    const key = groupKey(r, by, timeZone);
-    const list = groups.get(key);
-    if (list) list.push(r);
-    else groups.set(key, [r]);
+    for (const key of groupKeys(r, by, timeZone)) {
+      const list = groups.get(key);
+      if (list) list.push(r);
+      else groups.set(key, [r]);
+    }
   }
   const rows = [...groups.entries()].map(([key, rs]) => {
     const s = summarize(rs);

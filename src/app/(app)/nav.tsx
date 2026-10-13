@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/components/ui";
 
-const LINKS = [
+const LINKS: { href: string; label: string; match?: string }[] = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/trades", label: "Journal" },
   { href: "/calendar", label: "Calendar" },
+  { href: "/days/today", label: "Daily journal", match: "/days" },
   { href: "/tools", label: "Position size" },
+  { href: "/simulator", label: "Simulator" },
   { href: "/import", label: "Import" },
   { href: "/accounts", label: "Accounts" },
   { href: "/settings", label: "Settings" },
@@ -19,7 +21,8 @@ export function Nav() {
   return (
     <nav className="flex gap-1 overflow-x-auto md:flex-col">
       {LINKS.map((l) => {
-        const active = pathname === l.href || pathname.startsWith(`${l.href}/`);
+        const base = l.match ?? l.href;
+        const active = pathname === base || pathname.startsWith(`${base}/`);
         return (
           <Link
             key={l.href}

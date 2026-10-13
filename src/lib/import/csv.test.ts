@@ -47,6 +47,7 @@ describe("parseTradeCsv", () => {
     assert.equal(first.trade.exitPrice, "184.1");
     assert.equal(open.trade.exitPrice, null);
     assert.equal(open.trade.multiplier, "50");
+    assert.deepEqual(first.trade.tags, ["a+ setup", "news"]);
   });
 
   it("maps common broker column names", () => {

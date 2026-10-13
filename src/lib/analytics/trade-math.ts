@@ -25,6 +25,7 @@ export type TradeInput = {
   strategy?: string | null;
   emotion?: string | null;
   followedRules?: boolean | null;
+  tags?: string[];
 };
 
 export type Outcome = "WIN" | "LOSS" | "BREAKEVEN";

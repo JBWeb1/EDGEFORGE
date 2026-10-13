@@ -7,7 +7,7 @@ import { zonedTimeToUtc } from "@/lib/analytics/timezone";
 import { computeTradeResult, isClosed, type TradeResult } from "@/lib/analytics/trade-math";
 import { listAccounts } from "@/lib/data/accounts";
 import { getSettings } from "@/lib/data/settings";
-import { knownSetups } from "@/lib/data/trade-form";
+import { knownSetups, knownTags } from "@/lib/data/trade-form";
 import { listTrades, toTradeInput } from "@/lib/data/trades";
 import { money, percent, plain, pnlClass, rMultiple } from "@/lib/format";
 import { requireUser } from "@/lib/session";
@@ -33,6 +33,7 @@ export default async function TradesPage({ searchParams }: PageProps<"/trades">)
     account: str(sp.account),
     q: str(sp.q),
     setup: str(sp.setup),
+    tag: str(sp.tag),
     /** open | closed | win | loss | breakeven */
     outcome: str(sp.outcome),
     from: str(sp.from),
@@ -43,14 +44,16 @@ export default async function TradesPage({ searchParams }: PageProps<"/trades">)
   const outcome = filters.outcome && filters.outcome in OUTCOMES ? OUTCOMES[filters.outcome as keyof typeof OUTCOMES] : null;
   const status = filters.outcome === "open" ? "open" : filters.outcome === "closed" || outcome ? "closed" : undefined;
 
-  const [accounts, setups, rows] = await Promise.all([
+  const [accounts, setups, tags, rows] = await Promise.all([
     listAccounts(user.id),
     knownSetups(user.id),
+    knownTags(user.id),
     listTrades(user.id, {
       accountId: filters.account,
       status,
       q: filters.q,
       setup: filters.setup,
+      tag: filters.tag,
       from: dayStart(filters.from, timeZone),
       to: dayStart(filters.to, timeZone, 1),
     }),
@@ -102,6 +105,12 @@ export default async function TradesPage({ searchParams }: PageProps<"/trades">)
           <option value="">All setups</option>
           {setups.map((s) => <option key={s} value={s}>{s}</option>)}
         </Select>
+ {tags.length > 0 && (
+          <Select name="tag" defaultValue={filters.tag ?? ""} aria-label="Tag">
+            <option value="">All tags</option>
+            {tags.map((t) => <option key={t} value={t}>#{t}</option>)}
+          </Select>
+        )}
         <Select name="outcome" defaultValue={filters.outcome ?? ""} aria-label="Outcome">
           <option value="">Any status</option>
           <option value="open">Open</option>
@@ -170,7 +179,10 @@ export default async function TradesPage({ searchParams }: PageProps<"/trades">)
                     <td className="num px-4 py-3 text-right">{t.exitPrice ? plain(t.exitPrice) : <Badge tone="info">open</Badge>}</td>
                     <td className={cn("num px-4 py-3 text-right font-medium", pnlClass(r?.netPnl))}>{r ? money(r.netPnl, t.account.currency, { signed: true }) : "—"}</td>
                     <td className={cn("num px-4 py-3 text-right", pnlClass(r?.rMultiple))}>{r ? rMultiple(r.rMultiple) : "—"}</td>
-                    <td className="px-4 py-3 text-navy-300">{t.setup ?? "—"}</td>
+                    <td className="px-4 py-3 text-navy-300">
+                      {t.setup ?? "—"}
+                      {t.tags.length > 0 && <span className="block text-xs text-electric-soft">{t.tags.map((x) => `#${x.name}`).join(" ")}</span>}
+                    </td>
                   </tr>
                 ))}
               </tbody>

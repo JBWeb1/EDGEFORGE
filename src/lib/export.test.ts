@@ -19,6 +19,7 @@ const row: ExportRow = {
   setup: "Fade, \"quoted\"",
   strategy: null,
   notes: "=HYPERLINK(\"http://evil\")",
+  tags: ["news", "a+ setup"],
   accountName: "Main",
   currency: "USD",
   emotion: "CALM",
@@ -42,6 +43,7 @@ describe("tradesToCsv", () => {
     assert.equal(r.trade.entryAt.toISOString(), "2026-03-02T14:30:00.000Z");
     assert.equal(r.trade.exitPrice, "188");
     assert.equal(r.trade.fees, "1.5");
+    assert.deepEqual(r.trade.tags, ["news", "a+ setup"]);
   });
 });
 

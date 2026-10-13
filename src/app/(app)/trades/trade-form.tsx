@@ -80,10 +80,12 @@ export function TradeForm({
   accounts,
   initial,
   setups = [],
+  tags = [],
 }: {
   accounts: { id: string; name: string; currency: string }[];
   initial: TradeFormValues;
   setups?: string[];
+  tags?: string[];
 }) {
   const [state, action, pending] = useActionState(saveTrade, {} as FormState);
   const base = state.values ?? initial;
@@ -193,6 +195,15 @@ export function TradeForm({
             </Field>
             <Field label="Screenshot link" htmlFor="screenshotUrl" errors={e.screenshotUrl} hint="https:// link to a chart image.">
               <Input id="screenshotUrl" name="screenshotUrl" type="url" defaultValue={base.screenshotUrl} />
+            </Field>
+            <Field
+              label="Tags"
+              htmlFor="tags"
+              errors={e.tags}
+              className="sm:col-span-2"
+              hint={tags.length ? `Comma-separated. Yours: ${tags.slice(0, 12).join(", ")}${tags.length > 12 ? "…" : ""}` : "Comma-separated, e.g. news, a+ setup, late entry"}
+            >
+              <Input id="tags" name="tags" defaultValue={base.tags} placeholder="news, a+ setup" />
             </Field>
             <Field label="Notes" htmlFor="notes" errors={e.notes} className="sm:col-span-2">
               <Textarea id="notes" name="notes" defaultValue={base.notes} placeholder="Why did you take it? What would you do differently?" />

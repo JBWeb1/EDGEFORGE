@@ -6,7 +6,7 @@ import { breakdown, dailyEquityCurve, summarize } from "@/lib/analytics/metrics"
 import { generateInsights } from "@/lib/analytics/insights";
 import { findViolations, todayStatus, type RuleId, type Violation } from "@/lib/analytics/rules";
 import { getSettings } from "@/lib/data/settings";
-import { toTradeInput } from "@/lib/data/trades";
+import { TAG_SELECT, toTradeInput } from "@/lib/data/trades";
 
 export const RANGES = {
   "30d": { label: "30 days", days: 30 },
@@ -42,6 +42,7 @@ export async function getDashboardData(
 
   const trades = await prisma.trade.findMany({
     where: { userId, accountId: { in: scope.map((a) => a.id) } },
+    include: { tags: TAG_SELECT },
   });
   const inputs = trades.map(toTradeInput);
   const byId = new Map(inputs.map((t) => [t.id, t]));
@@ -126,6 +127,7 @@ export async function getDashboardData(
     bySymbol: breakdown(results, "symbol"),
     byWeekday: breakdown(results, "weekday", timeZone),
     byHour: breakdown(results, "hour", timeZone),
+    byTag: breakdown(results, "tag"),
     byRules: breakdown(results, "rules"),
     byEmotion: breakdown(results, "emotion"),
     insights: generateInsights(results),

@@ -10,6 +10,7 @@ export type TradeFilter = {
   /** Matches symbol, setup, strategy or notes (case-insensitive). */
   q?: string;
   setup?: string;
+  tag?: string;
   /** Entry time window, as UTC instants. */
   from?: Date;
   to?: Date;
@@ -24,6 +25,7 @@ export function listTrades(userId: string, filter: TradeFilter = {}) {
       ...(filter.status === "open" ? { exitPrice: null } : filter.status === "closed" ? { exitPrice: { not: null } } : {}),
       ...(filter.symbol ? { symbol: filter.symbol.toUpperCase() } : {}),
       ...(filter.setup ? { setup: filter.setup } : {}),
+      ...(filter.tag ? { tags: { some: { name: filter.tag } } } : {}),
       ...(filter.from || filter.to ? { entryAt: { ...(filter.from ? { gte: filter.from } : {}), ...(filter.to ? { lt: filter.to } : {}) } } : {}),
       ...(q
         ? {
@@ -37,19 +39,22 @@ export function listTrades(userId: string, filter: TradeFilter = {}) {
         : {}),
     },
     orderBy: [{ entryAt: "desc" }, { id: "desc" }],
-    include: { account: { select: { name: true, currency: true } } },
+    include: { account: { select: { name: true, currency: true } }, tags: TAG_SELECT },
   });
 }
 
 export function getTrade(userId: string, id: string) {
   return prisma.trade.findFirst({
     where: { id, userId },
-    include: { account: { select: { name: true, currency: true } } },
+    include: { account: { select: { name: true, currency: true } }, tags: TAG_SELECT },
   });
 }
 
+/** Include this to load tag names alongside trades. */
+export const TAG_SELECT = { select: { name: true }, orderBy: { name: "asc" as const } };
+
 /** Maps a database trade onto the analytics engine's input shape. */
-export function toTradeInput(t: Trade): TradeInput {
+export function toTradeInput(t: Trade & { tags?: { name: string }[] }): TradeInput {
   return {
     id: t.id,
     symbol: t.symbol,
@@ -67,5 +72,6 @@ export function toTradeInput(t: Trade): TradeInput {
     strategy: t.strategy,
     emotion: t.emotion,
     followedRules: t.followedRules,
+    tags: t.tags?.map((x) => x.name) ?? [],
   };
 }

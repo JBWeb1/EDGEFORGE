@@ -21,5 +21,8 @@ export const config = {
     "/calendar/:path*",
     "/tools/:path*",
     "/settings/:path*",
+    "/days/:path*",
+    "/coach/:path*",
+    "/simulator/:path*",
   ],
 };

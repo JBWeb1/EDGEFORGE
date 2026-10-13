@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import Decimal from "decimal.js";
 import Papa from "papaparse";
 import { zonedTimeToUtc } from "@/lib/analytics/timezone";
+import { parseTags } from "@/lib/tags";
 
 /**
  * Parses and validates a trade CSV. Nothing is written to the database here:
@@ -35,6 +36,7 @@ export const TEMPLATE_HEADERS = [
   "setup",
   "strategy",
   "notes",
+  "tags",
 ] as const;
 
 type Field = (typeof TEMPLATE_HEADERS)[number];
@@ -54,6 +56,7 @@ const ALIASES: Record<Field, string[]> = {
   setup: ["setup", "pattern"],
   strategy: ["strategy", "playbook"],
   notes: ["notes", "note", "comment", "comments", "description"],
+  tags: ["tags", "tag", "labels"],
 };
 
 const normalizeHeader = (h: string) =>
@@ -74,6 +77,7 @@ export type ImportedTrade = {
   setup: string | null;
   strategy: string | null;
   notes: string | null;
+  tags: string[];
   fingerprint: string;
 };
 
@@ -131,7 +135,7 @@ function parseDirection(value: string): "LONG" | "SHORT" | null {
   return null;
 }
 
-export function tradeFingerprint(t: Omit<ImportedTrade, "fingerprint" | "setup" | "strategy" | "notes">): string {
+export function tradeFingerprint(t: Omit<ImportedTrade, "fingerprint" | "setup" | "strategy" | "notes" | "tags">): string {
   const parts = [
     t.symbol,
     t.direction,
@@ -221,6 +225,8 @@ export function parseTradeCsv(text: string, { timeZone = "UTC" }: { timeZone?: s
       errors.push("Exit price and exit date must both be filled in (closed trade) or both left empty (open trade).");
     }
     if (entryAt && exitAt && exitAt < entryAt) errors.push("Exit date is before entry date.");
+    const tagResult = parseTags(get("tags"));
+    if (tagResult.error) errors.push(tagResult.error);
 
     if (errors.length || !direction || !quantity || !entryPrice || !entryAt) {
       return { line, ok: false, errors, raw };
@@ -248,6 +254,7 @@ export function parseTradeCsv(text: string, { timeZone = "UTC" }: { timeZone?: s
         setup: text("setup", 80),
         strategy: text("strategy", 80),
         notes: text("notes", 5000),
+        tags: tagResult.tags,
         fingerprint: tradeFingerprint(base),
       },
     };
@@ -271,8 +278,8 @@ export function parseTradeCsv(text: string, { timeZone = "UTC" }: { timeZone?: s
 export function templateCsv(): string {
   return [
     TEMPLATE_HEADERS.join(","),
-    "AAPL,long,50,2026-03-02 14:35,182.40,2026-03-02 15:50,184.10,181.50,185.00,1.00,1,Opening range breakout,Momentum,Clean break of OR high",
-    "EURUSD,short,10000,2026-03-03T08:15:00Z,1.0852,2026-03-03T10:40:00Z,1.0831,1.0870,1.0815,0.70,1,London reversal,Mean reversion,",
-    "ES,long,1,2026-03-04 15:00,5012.25,,,5004.00,5030.00,2.10,50,Pullback,Trend,Still open",
+    'AAPL,long,50,2026-03-02 14:35,182.40,2026-03-02 15:50,184.10,181.50,185.00,1.00,1,Opening range breakout,Momentum,Clean break of OR high,"a+ setup; news"',
+    "EURUSD,short,10000,2026-03-03T08:15:00Z,1.0852,2026-03-03T10:40:00Z,1.0831,1.0870,1.0815,0.70,1,London reversal,Mean reversion,,",
+    "ES,long,1,2026-03-04 15:00,5012.25,,,5004.00,5030.00,2.10,50,Pullback,Trend,Still open,",
   ].join("\n");
 }

@@ -104,10 +104,32 @@ export async function importCsv(prev: ImportState, formData: FormData): Promise<
       },
     });
     // skipDuplicates covers a concurrent import of the same file.
-    const { count } = await tx.trade.createMany({
-      data: fresh.map(({ trade }) => ({ ...trade, userId: user.id, accountId, importBatchId: batch.id })),
+    const created = await tx.trade.createManyAndReturn({
+      data: fresh.map(({ trade }) => {
+        const { tags, ...fields } = trade;
+        void tags; // attached below
+        return { ...fields, userId: user.id, accountId, importBatchId: batch.id };
+      }),
       skipDuplicates: true,
+      select: { id: true, fingerprint: true },
     });
+    const count = created.length;
+
+    // Attach tags: one query per distinct tag rather than per trade.
+    const idByFingerprint = new Map(created.map((t) => [t.fingerprint, t.id]));
+    const tradesByTag = new Map<string, string[]>();
+    for (const { trade } of fresh) {
+      const id = idByFingerprint.get(trade.fingerprint);
+      if (!id) continue;
+      for (const tag of trade.tags) tradesByTag.set(tag, [...(tradesByTag.get(tag) ?? []), id]);
+    }
+    for (const [name, ids] of tradesByTag) {
+      await tx.tag.upsert({
+        where: { userId_name: { userId: user.id, name } },
+        create: { userId: user.id, name, trades: { connect: ids.map((id) => ({ id })) } },
+        update: { trades: { connect: ids.map((id) => ({ id })) } },
+      });
+    }
     await tx.importBatch.update({
       where: { id: batch.id },
       data: { importedCount: count, duplicateCount: valid.length - count },

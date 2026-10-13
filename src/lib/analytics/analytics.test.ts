@@ -214,6 +214,20 @@ describe("breakdown", () => {
     assert.equal(dailyEquityCurve(results, 0, "Africa/Johannesburg")[0].date, "2026-03-07");
   });
 
+  it("counts a trade in every one of its tags", () => {
+    const results = computeClosedResults([
+      pnlTrade(10, { tags: ["news", "a+"] }),
+      pnlTrade(-4, { tags: ["news"] }),
+      pnlTrade(2, {}),
+    ]);
+    const rows = breakdown(results, "tag");
+    assert.deepEqual(rows.map((r) => [r.key, r.trades, r.netPnl.toString()]), [
+      ["a+", 1, "10"],
+      ["news", 2, "6"],
+      ["Untagged", 1, "2"],
+    ]);
+  });
+
   it("orders weekdays by calendar", () => {
     const results = computeClosedResults([
       pnlTrade(1, { entryAt: new Date("2026-03-06T10:00:00Z"), exitAt: new Date("2026-03-06T11:00:00Z") }), // Fri

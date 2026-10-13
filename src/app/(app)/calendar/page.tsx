@@ -75,11 +75,12 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
                 // Tint strength scales with the day's size; sign and text carry the meaning.
                 const alpha = c.stat ? 0.12 + 0.4 * Math.min(1, Math.abs(pnl) / maxAbs) : 0;
                 return (
-                  <div
+                  <Link
+                    href={`/days/${c.date}`}
                     key={c.date}
                     title={c.stat ? `${c.date}: ${money(c.stat.pnl, data.currency, { signed: true })} · ${c.stat.trades} trades` : c.date}
                     className={cn(
-                      "flex min-h-14 flex-col rounded-lg border p-1 sm:min-h-20 sm:p-2",
+                      "flex min-h-14 flex-col rounded-lg border p-1 transition-colors hover:border-electric sm:min-h-20 sm:p-2",
                       c.inMonth ? "border-navy-700" : "border-transparent opacity-30",
                       c.date === data.today && "ring-1 ring-electric",
                     )}
@@ -93,7 +94,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
                         <span className="hidden text-[10px] text-navy-300 sm:block">{c.stat.trades} trade{c.stat.trades === 1 ? "" : "s"}</span>
                       </>
                     )}
-                  </div>
+                  </Link>
                 );
               })}
               <div className="hidden flex-col justify-center rounded-lg bg-navy-900/60 p-2 text-right sm:flex">

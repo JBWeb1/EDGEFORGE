@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseTags } from "@/lib/tags";
 
 const blankToNull = (v: unknown) => (typeof v === "string" && v.trim() === "" ? null : v);
 
@@ -54,6 +55,14 @@ export const tradeSchema = z
       z.number().int().min(1).max(5).nullable(),
     ),
     notes: optionalText(5000),
+    tags: z
+      .string()
+      .optional()
+      .transform((v, ctx) => {
+        const { tags, error } = parseTags(v);
+        if (error) ctx.addIssue({ code: "custom", message: error });
+        return tags;
+      }),
     screenshotUrl: z.preprocess(
       blankToNull,
       z.url({ protocol: /^https$/, error: "Screenshot link must be an https:// URL." }).max(2000).nullable(),

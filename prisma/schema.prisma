@@ -29,6 +29,9 @@ model User {
   importBatches   ImportBatch[]
   syncState       SyncState?
   settings        UserSettings?
+  dailyNotes      DailyNote[]
+  tags            Tag[]
+  coachUsage      CoachUsage[]
 
   @@map("user")
 }
@@ -156,6 +159,8 @@ model Trade {
   notes         String?
   screenshotUrl String?
 
+  tags Tag[]
+
   importBatchId String?
   importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
   // Deterministic hash of the trade's identifying fields, used to skip
@@ -211,4 +216,45 @@ model UserSettings {
   updatedAt DateTime @updatedAt
 
   @@map("user_settings")
+}
+
+// ─── Journaling extras ──────────────────────────────────────────────────────
+
+model Tag {
+  id     String  @id @default(cuid())
+  userId String
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name   String
+  trades Trade[]
+
+  @@unique([userId, name])
+  @@map("tag")
+}
+
+// One entry per trading day: the plan before the session, the review after.
+model DailyNote {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Local trading day, YYYY-MM-DD in the user's time zone.
+  date      String
+  premarket String?
+  review    String?
+  mood      Int? // 1-5
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@map("daily_note")
+}
+
+// Questions asked to the AI coach per day, for the daily limit.
+model CoachUsage {
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date   String
+  count  Int    @default(0)
+
+  @@id([userId, date])
+  @@map("coach_usage")
 }

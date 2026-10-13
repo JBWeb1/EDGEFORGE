@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { LocalTime } from "@/components/local-time";
@@ -117,6 +118,13 @@ export default async function TradePage({ params }: PageProps<"/trades/[id]">) {
             <Row label="Followed rules">{trade.followedRules === null ? "—" : trade.followedRules ? "Yes" : "No"}</Row>
             <Row label="Confidence">{trade.confidence ? `${trade.confidence} / 5` : "—"}</Row>
           </dl>
+          {trade.tags.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {trade.tags.map((t) => (
+                <Link key={t.name} href={`/trades?tag=${encodeURIComponent(t.name)}`}><Badge tone="info">#{t.name}</Badge></Link>
+              ))}
+            </div>
+          )}
           {trade.screenshotUrl && (
             <a href={trade.screenshotUrl} target="_blank" rel="noopener noreferrer nofollow" className="mt-3 inline-block text-sm text-electric-soft hover:underline">
               Open screenshot ↗

@@ -3,7 +3,7 @@ import type { Trade } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 
 /** Converts a stored trade into the string values the trade form edits. */
-export function tradeToFormValues(t: Trade): Record<string, string> {
+export function tradeToFormValues(t: Trade & { tags?: { name: string }[] }): Record<string, string> {
   const s = (v: { toString(): string } | null) => (v === null ? "" : v.toString());
   return {
     id: t.id,
@@ -26,7 +26,14 @@ export function tradeToFormValues(t: Trade): Record<string, string> {
     confidence: t.confidence === null ? "" : String(t.confidence),
     notes: t.notes ?? "",
     screenshotUrl: t.screenshotUrl ?? "",
+    tags: t.tags?.map((x) => x.name).join(", ") ?? "",
   };
+}
+
+/** Tags the user has created, for suggestions and filters. */
+export async function knownTags(userId: string) {
+  const rows = await prisma.tag.findMany({ where: { userId }, select: { name: true }, orderBy: { name: "asc" } });
+  return rows.map((r) => r.name);
 }
 
 /** Setups the user has used before, for form suggestions. */

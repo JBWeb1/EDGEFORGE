@@ -25,18 +25,26 @@ export async function saveTrade(prev: FormState, formData: FormData): Promise<Fo
   const account = await prisma.tradingAccount.findFirst({ where: { id: parsed.data.accountId, userId: user.id } });
   if (!account) return { errors: { accountId: ["Choose one of your accounts."] }, values, attempt };
 
+  const { tags, ...fields } = parsed.data;
+  const connectTags = tags.map((name) => ({
+    where: { userId_name: { userId: user.id, name } },
+    create: { userId: user.id, name },
+  }));
   const id = values.id;
   let tradeId: string;
   if (id) {
+    const existing = await prisma.trade.findFirst({ where: { id, userId: user.id }, select: { id: true } });
+    if (!existing) return { message: "Trade not found.", values, attempt };
     // Editing a trade manually detaches it from import de-duplication.
-    const { count } = await prisma.trade.updateMany({
-      where: { id, userId: user.id },
-      data: { ...parsed.data, fingerprint: null },
+    await prisma.trade.update({
+      where: { id },
+      data: { ...fields, fingerprint: null, tags: { set: [], connectOrCreate: connectTags } },
     });
-    if (count === 0) return { message: "Trade not found.", values, attempt };
     tradeId = id;
   } else {
-    const trade = await prisma.trade.create({ data: { ...parsed.data, userId: user.id } });
+    const trade = await prisma.trade.create({
+      data: { ...fields, userId: user.id, tags: { connectOrCreate: connectTags } },
+    });
     tradeId = trade.id;
   }
   await bumpDataVersion(user.id);

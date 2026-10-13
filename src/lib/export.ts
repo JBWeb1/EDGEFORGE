@@ -40,6 +40,7 @@ export function tradesToCsv(rows: ExportRow[]): string {
       text(t.setup),
       text(t.strategy),
       text(t.notes),
+      text((t.tags ?? []).join("; ")),
       text(t.accountName),
       t.currency,
       t.emotion?.toLowerCase() ?? "",
