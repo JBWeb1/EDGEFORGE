@@ -109,6 +109,23 @@ Sign up, add a trading account, then log trades or import [`samples/sample-trade
 - `/api/prices` only looks up symbols from the user's own open trades, so it can't be used as an open market-data proxy.
 - Before a commercial launch: add rate limiting in front of the auth endpoints, email verification, password reset, a Content Security Policy, and an external security review.
 
+## Branch protection
+
+`main` is the release branch and is protected by the GitHub ruleset in [`.github/rulesets/protect-main.json`](.github/rulesets/protect-main.json):
+
+| Rule | Why |
+| --- | --- |
+| Changes only through a pull request | Every change is reviewable and has a record |
+| CI (`check` job: migrations, lint, typecheck, tests, build) must pass, on a branch that is up to date with `main` | Nothing broken reaches `main`, including Dependabot updates |
+| All review conversations resolved before merging | Review comments can't be silently ignored |
+| Approvals dismissed when new commits are pushed | An approval always covers the final code |
+| No force pushes, no deleting `main` | History can't be rewritten or lost |
+| Squash or merge commits allowed | Keeps `main` readable |
+
+Required approvals are set to 0 because a solo owner can't approve their own pull request. Raise it to 1 (and consider "Require review from Code Owners") once a second developer joins.
+
+To apply it: **Settings → Rules → Rulesets → New ruleset → Import a ruleset**, and pick the JSON file.
+
 ## Project layout
 
 ```
