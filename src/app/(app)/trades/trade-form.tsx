@@ -1,15 +1,18 @@
 "use client";
 
 import Decimal from "decimal.js";
+import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { DateTimeInput } from "@/components/datetime-input";
 import { Button, ButtonLink, Card, CardTitle, Field, FormMessage, Input, Select, Textarea, cn } from "@/components/ui";
+import { computeExcursion, gradeFromChecklist } from "@/lib/analytics/excursion";
 import { computeTradeResult, type Direction } from "@/lib/analytics/trade-math";
 import { money, pnlClass, rMultiple, ratio } from "@/lib/format";
 import { EMOTIONS, type FormState } from "@/lib/validation";
 import { saveTrade } from "./actions";
 
 export type TradeFormValues = Record<string, string>;
+export type PlaybookOption = { id: string; name: string; rules: { id: string; text: string }[] };
 
 const isPositive = (v: string | undefined) => !!v && /^\d+(\.\d+)?$/.test(v.trim()) && Number(v) > 0;
 
@@ -29,9 +32,12 @@ function Preview({ v, currency }: { v: TradeFormValues; currency: string }) {
       exitAt: new Date(0),
       stopLoss: opt(v.stopLoss),
       takeProfit: opt(v.takeProfit),
+      maePrice: opt(v.maePrice),
+      mfePrice: opt(v.mfePrice),
       fees: /^\d+(\.\d+)?$/.test(v.fees?.trim() ?? "") ? v.fees.trim() : "0",
     });
   }, [v]);
+  const excursion = result && (result.trade.mfePrice || result.trade.maePrice) ? computeExcursion(result) : null;
 
   const planned = useMemo(() => {
     if (!isPositive(v.entryPrice) || !isPositive(v.stopLoss) || !isPositive(v.quantity)) return null;
@@ -68,6 +74,18 @@ function Preview({ v, currency }: { v: TradeFormValues; currency: string }) {
           <dt className="text-xs text-navy-400">R multiple</dt>
           <dd className={cn("num mt-1", pnlClass(result?.rMultiple))}>{rMultiple(result?.rMultiple)}</dd>
         </div>
+        {excursion?.exitEfficiency && (
+          <div>
+            <dt className="text-xs text-navy-400">Exit efficiency</dt>
+            <dd className="num mt-1 text-white">{Math.round(excursion.exitEfficiency.toNumber() * 100)}% of best move</dd>
+          </div>
+        )}
+        {excursion?.leftOnTable && excursion.leftOnTable.gt(0) && (
+          <div>
+            <dt className="text-xs text-navy-400">Left on the table</dt>
+            <dd className="num mt-1 text-white">{money(excursion.leftOnTable, currency)}</dd>
+          </div>
+        )}
       </dl>
       <p className="mt-4 text-xs text-navy-400">
         Net P&amp;L = (exit − entry) × quantity × multiplier, reversed for shorts, minus fees. Leave the exit empty while the trade is open.
@@ -81,11 +99,13 @@ export function TradeForm({
   initial,
   setups = [],
   tags = [],
+  playbooks = [],
 }: {
   accounts: { id: string; name: string; currency: string }[];
   initial: TradeFormValues;
   setups?: string[];
   tags?: string[];
+  playbooks?: PlaybookOption[];
 }) {
   const [state, action, pending] = useActionState(saveTrade, {} as FormState);
   const base = state.values ?? initial;
@@ -159,8 +179,16 @@ export function TradeForm({
             <Field label="Take profit" htmlFor="takeProfit" errors={e.takeProfit}>
               <Input id="takeProfit" name="takeProfit" inputMode="decimal" defaultValue={base.takeProfit} />
             </Field>
+            <Field label="Worst price while open (MAE)" htmlFor="maePrice" errors={e.maePrice} hint="Optional. The furthest price went against you.">
+              <Input id="maePrice" name="maePrice" inputMode="decimal" defaultValue={base.maePrice} />
+            </Field>
+            <Field label="Best price while open (MFE)" htmlFor="mfePrice" errors={e.mfePrice} hint="Optional. Shows how much of the move your exit captured.">
+              <Input id="mfePrice" name="mfePrice" inputMode="decimal" defaultValue={base.mfePrice} />
+            </Field>
           </div>
         </Card>
+
+        <PlaybookChecklist playbooks={playbooks} initialId={base.playbookId ?? ""} initialMet={base.rulesMet ?? ""} errors={e.playbookId} />
 
         <Card>
           <CardTitle>Context &amp; psychology</CardTitle>
@@ -219,5 +247,74 @@ export function TradeForm({
       </div>
       <Preview v={live} currency={currency} />
     </form>
+  );
+}
+
+function PlaybookChecklist({
+  playbooks,
+  initialId,
+  initialMet,
+  errors,
+}: {
+  playbooks: PlaybookOption[];
+  initialId: string;
+  initialMet: string;
+  errors?: string[];
+}) {
+  const [id, setId] = useState(initialId);
+  const [met, setMet] = useState(() => new Set(initialMet.split(",").filter(Boolean)));
+  const playbook = playbooks.find((p) => p.id === id);
+  const count = playbook ? playbook.rules.filter((r) => met.has(r.id)).length : 0;
+  const grade = playbook ? gradeFromChecklist(count, playbook.rules.length) : null;
+
+  if (playbooks.length === 0) {
+    return (
+      <Card>
+        <CardTitle>Playbook</CardTitle>
+        <p className="text-sm text-navy-300">
+          Write down the rules of a strategy on the <Link href="/playbooks" className="text-electric-soft hover:underline">Playbooks</Link> page, then grade every trade against them.
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardTitle action={grade && <span className={cn("rounded-md px-2 py-0.5 text-sm font-semibold", grade === "A" ? "bg-profit/15 text-profit" : grade === "D" ? "bg-loss/15 text-loss" : "bg-electric/15 text-electric-soft")}>Grade {grade}</span>}>
+        Playbook
+      </CardTitle>
+      <Field label="Which playbook was this trade?" htmlFor="playbookId" errors={errors}>
+        <Select id="playbookId" name="playbookId" value={id} onChange={(ev) => setId(ev.target.value)}>
+          <option value="">None</option>
+          {playbooks.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </Select>
+      </Field>
+      {playbook && (
+        <fieldset className="mt-4">
+          <legend className="mb-2 text-xs font-medium text-navy-300">Tick every rule this trade met ({count}/{playbook.rules.length})</legend>
+          <div className="flex flex-col gap-2">
+            {playbook.rules.map((r) => (
+              <label key={r.id} className="flex cursor-pointer items-start gap-2 text-sm text-navy-200">
+                <input
+                  type="checkbox"
+                  name="rulesMet"
+                  value={r.id}
+                  checked={met.has(r.id)}
+                  onChange={(ev) => {
+                    const next = new Set(met);
+                    if (ev.target.checked) next.add(r.id);
+                    else next.delete(r.id);
+                    setMet(next);
+                  }}
+                  className="mt-0.5 h-4 w-4 accent-electric"
+                />
+                {r.text}
+              </label>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-navy-400">A = every rule met · B = 75%+ · C = 50%+ · D = under half.</p>
+        </fieldset>
+      )}
+    </Card>
   );
 }

@@ -20,6 +20,8 @@ const row: ExportRow = {
   strategy: null,
   notes: "=HYPERLINK(\"http://evil\")",
   tags: ["news", "a+ setup"],
+  maePrice: "191.5",
+  mfePrice: "187.25",
   accountName: "Main",
   currency: "USD",
   emotion: "CALM",
@@ -44,6 +46,8 @@ describe("tradesToCsv", () => {
     assert.equal(r.trade.exitPrice, "188");
     assert.equal(r.trade.fees, "1.5");
     assert.deepEqual(r.trade.tags, ["news", "a+ setup"]);
+    assert.equal(r.trade.maePrice, "191.5");
+    assert.equal(r.trade.mfePrice, "187.25");
   });
 });
 

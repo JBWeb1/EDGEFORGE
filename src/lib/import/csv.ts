@@ -37,6 +37,8 @@ export const TEMPLATE_HEADERS = [
   "strategy",
   "notes",
   "tags",
+  "mae_price",
+  "mfe_price",
 ] as const;
 
 type Field = (typeof TEMPLATE_HEADERS)[number];
@@ -57,6 +59,8 @@ const ALIASES: Record<Field, string[]> = {
   strategy: ["strategy", "playbook"],
   notes: ["notes", "note", "comment", "comments", "description"],
   tags: ["tags", "tag", "labels"],
+  mae_price: ["mae_price", "mae", "worst_price", "max_adverse_price"],
+  mfe_price: ["mfe_price", "mfe", "best_price", "max_favorable_price"],
 };
 
 const normalizeHeader = (h: string) =>
@@ -78,6 +82,8 @@ export type ImportedTrade = {
   strategy: string | null;
   notes: string | null;
   tags: string[];
+  maePrice: string | null;
+  mfePrice: string | null;
   fingerprint: string;
 };
 
@@ -135,7 +141,9 @@ function parseDirection(value: string): "LONG" | "SHORT" | null {
   return null;
 }
 
-export function tradeFingerprint(t: Omit<ImportedTrade, "fingerprint" | "setup" | "strategy" | "notes" | "tags">): string {
+export function tradeFingerprint(
+  t: Omit<ImportedTrade, "fingerprint" | "setup" | "strategy" | "notes" | "tags" | "maePrice" | "mfePrice">,
+): string {
   const parts = [
     t.symbol,
     t.direction,
@@ -202,6 +210,8 @@ export function parseTradeCsv(text: string, { timeZone = "UTC" }: { timeZone?: s
     const stopLoss = positive("stop_loss", "Stop loss", true);
     const takeProfit = positive("take_profit", "Take profit", true);
     const multiplier = positive("multiplier", "Multiplier", true) ?? "1";
+    const maePrice = positive("mae_price", "Worst price (MAE)", true);
+    const mfePrice = positive("mfe_price", "Best price (MFE)", true);
 
     let fees = "0";
     if (get("fees")) {
@@ -225,6 +235,18 @@ export function parseTradeCsv(text: string, { timeZone = "UTC" }: { timeZone?: s
       errors.push("Exit price and exit date must both be filled in (closed trade) or both left empty (open trade).");
     }
     if (entryAt && exitAt && exitAt < entryAt) errors.push("Exit date is before entry date.");
+    if (direction && entryPrice) {
+      const long = direction === "LONG";
+      const worse = (a: number, b: number) => (long ? a <= b : a >= b);
+      const e = Number(entryPrice);
+      const x = exitPrice ? Number(exitPrice) : null;
+      if (maePrice && (!worse(Number(maePrice), e) || (x !== null && !worse(Number(maePrice), x)))) {
+        errors.push(`Worst price ${maePrice} is on the wrong side of the entry/exit for a ${direction.toLowerCase()} trade.`);
+      }
+      if (mfePrice && (!worse(e, Number(mfePrice)) || (x !== null && !worse(x, Number(mfePrice))))) {
+        errors.push(`Best price ${mfePrice} is on the wrong side of the entry/exit for a ${direction.toLowerCase()} trade.`);
+      }
+    }
     const tagResult = parseTags(get("tags"));
     if (tagResult.error) errors.push(tagResult.error);
 
@@ -255,6 +277,8 @@ export function parseTradeCsv(text: string, { timeZone = "UTC" }: { timeZone?: s
         strategy: text("strategy", 80),
         notes: text("notes", 5000),
         tags: tagResult.tags,
+        maePrice,
+        mfePrice,
         fingerprint: tradeFingerprint(base),
       },
     };
@@ -278,8 +302,8 @@ export function parseTradeCsv(text: string, { timeZone = "UTC" }: { timeZone?: s
 export function templateCsv(): string {
   return [
     TEMPLATE_HEADERS.join(","),
-    'AAPL,long,50,2026-03-02 14:35,182.40,2026-03-02 15:50,184.10,181.50,185.00,1.00,1,Opening range breakout,Momentum,Clean break of OR high,"a+ setup; news"',
-    "EURUSD,short,10000,2026-03-03T08:15:00Z,1.0852,2026-03-03T10:40:00Z,1.0831,1.0870,1.0815,0.70,1,London reversal,Mean reversion,,",
-    "ES,long,1,2026-03-04 15:00,5012.25,,,5004.00,5030.00,2.10,50,Pullback,Trend,Still open,",
+    'AAPL,long,50,2026-03-02 14:35,182.40,2026-03-02 15:50,184.10,181.50,185.00,1.00,1,Opening range breakout,Momentum,Clean break of OR high,"a+ setup; news",181.80,185.20',
+    "EURUSD,short,10000,2026-03-03T08:15:00Z,1.0852,2026-03-03T10:40:00Z,1.0831,1.0870,1.0815,0.70,1,London reversal,Mean reversion,,,,",
+    "ES,long,1,2026-03-04 15:00,5012.25,,,5004.00,5030.00,2.10,50,Pullback,Trend,Still open,,,",
   ].join("\n");
 }

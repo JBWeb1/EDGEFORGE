@@ -22,6 +22,7 @@ export const config = {
     "/tools/:path*",
     "/settings/:path*",
     "/days/:path*",
+    "/playbooks/:path*",
     "/coach/:path*",
     "/simulator/:path*",
   ],

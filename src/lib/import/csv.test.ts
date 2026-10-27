@@ -48,6 +48,8 @@ describe("parseTradeCsv", () => {
     assert.equal(open.trade.exitPrice, null);
     assert.equal(open.trade.multiplier, "50");
     assert.deepEqual(first.trade.tags, ["a+ setup", "news"]);
+    assert.equal(first.trade.maePrice, "181.8");
+    assert.equal(first.trade.mfePrice, "185.2");
   });
 
   it("maps common broker column names", () => {
@@ -78,6 +80,12 @@ describe("parseTradeCsv", () => {
     assert.ok(!rows[0].ok && rows[0].errors.length === 3);
     assert.ok(!rows[1].ok && rows[1].errors.includes("Exit date is before entry date."));
     assert.ok(!rows[2].ok && /both be filled in/.test(rows[2].errors[0]));
+  });
+
+  it("rejects excursion prices on the wrong side of the trade", () => {
+    const csv = ["symbol,direction,quantity,entry_date,entry_price,exit_date,exit_price,mae,mfe", "AAPL,long,1,2026-03-02,100,2026-03-02,104,101,103"].join("\n");
+    const row = parseTradeCsv(csv).rows[0];
+    assert.ok(!row.ok && row.errors.length === 2);
   });
 
   it("flags duplicate rows within a file and fingerprints deterministically", () => {

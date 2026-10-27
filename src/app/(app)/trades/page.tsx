@@ -7,7 +7,8 @@ import { zonedTimeToUtc } from "@/lib/analytics/timezone";
 import { computeTradeResult, isClosed, type TradeResult } from "@/lib/analytics/trade-math";
 import { listAccounts } from "@/lib/data/accounts";
 import { getSettings } from "@/lib/data/settings";
-import { knownSetups, knownTags } from "@/lib/data/trade-form";
+import { knownSetups, knownTags, playbookOptions } from "@/lib/data/trade-form";
+import { BULK_FORM_ID, BulkBar } from "./bulk-bar";
 import { listTrades, toTradeInput } from "@/lib/data/trades";
 import { money, percent, plain, pnlClass, rMultiple } from "@/lib/format";
 import { requireUser } from "@/lib/session";
@@ -34,6 +35,7 @@ export default async function TradesPage({ searchParams }: PageProps<"/trades">)
     q: str(sp.q),
     setup: str(sp.setup),
     tag: str(sp.tag),
+    playbook: str(sp.playbook),
     /** open | closed | win | loss | breakeven */
     outcome: str(sp.outcome),
     from: str(sp.from),
@@ -44,16 +46,18 @@ export default async function TradesPage({ searchParams }: PageProps<"/trades">)
   const outcome = filters.outcome && filters.outcome in OUTCOMES ? OUTCOMES[filters.outcome as keyof typeof OUTCOMES] : null;
   const status = filters.outcome === "open" ? "open" : filters.outcome === "closed" || outcome ? "closed" : undefined;
 
-  const [accounts, setups, tags, rows] = await Promise.all([
+  const [accounts, setups, tags, playbooks, rows] = await Promise.all([
     listAccounts(user.id),
     knownSetups(user.id),
     knownTags(user.id),
+    playbookOptions(user.id),
     listTrades(user.id, {
       accountId: filters.account,
       status,
       q: filters.q,
       setup: filters.setup,
       tag: filters.tag,
+      playbookId: filters.playbook,
       from: dayStart(filters.from, timeZone),
       to: dayStart(filters.to, timeZone, 1),
     }),
@@ -105,7 +109,13 @@ export default async function TradesPage({ searchParams }: PageProps<"/trades">)
           <option value="">All setups</option>
           {setups.map((s) => <option key={s} value={s}>{s}</option>)}
         </Select>
- {tags.length > 0 && (
+ {playbooks.length > 0 && (
+          <Select name="playbook" defaultValue={filters.playbook ?? ""} aria-label="Playbook">
+            <option value="">All playbooks</option>
+            {playbooks.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </Select>
+        )}
+        {tags.length > 0 && (
           <Select name="tag" defaultValue={filters.tag ?? ""} aria-label="Tag">
             <option value="">All tags</option>
             {tags.map((t) => <option key={t} value={t}>#{t}</option>)}
@@ -149,11 +159,14 @@ export default async function TradesPage({ searchParams }: PageProps<"/trades">)
           </EmptyState>
         )
       ) : (
+        <>
+        <BulkBar playbooks={playbooks.map((p) => ({ id: p.id, name: p.name }))} />
         <Card className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[56rem] text-sm">
               <thead className="border-b border-navy-700 text-left text-xs uppercase tracking-wider text-navy-400">
                 <tr>
+                  <th className="w-10 py-3 pl-4"><span className="sr-only">Select</span></th>
                   <th className="px-4 py-3 font-medium">Entry</th>
                   <th className="px-4 py-3 font-medium">Symbol</th>
                   <th className="px-4 py-3 font-medium">Side</th>
@@ -168,6 +181,9 @@ export default async function TradesPage({ searchParams }: PageProps<"/trades">)
               <tbody className="divide-y divide-navy-700/60">
                 {visible.map(({ t, r }) => (
                   <tr key={t.id} className="hover:bg-navy-800/50">
+                    <td className="py-3 pl-4">
+                      <input type="checkbox" name="ids" value={t.id} form={BULK_FORM_ID} className="h-4 w-4 accent-electric" aria-label={`Select ${t.symbol} trade`} />
+                    </td>
                     <td className="whitespace-nowrap px-4 py-3 text-navy-300"><LocalTime value={t.entryAt} /></td>
                     <td className="px-4 py-3">
                       <Link href={`/trades/${t.id}`} className="font-medium text-white hover:text-electric-soft">{t.symbol}</Link>
@@ -181,6 +197,7 @@ export default async function TradesPage({ searchParams }: PageProps<"/trades">)
                     <td className={cn("num px-4 py-3 text-right", pnlClass(r?.rMultiple))}>{r ? rMultiple(r.rMultiple) : "—"}</td>
                     <td className="px-4 py-3 text-navy-300">
                       {t.setup ?? "—"}
+                      {t.playbook && <span className="block text-xs text-navy-300">{t.playbook.name}</span>}
                       {t.tags.length > 0 && <span className="block text-xs text-electric-soft">{t.tags.map((x) => `#${x.name}`).join(" ")}</span>}
                     </td>
                   </tr>
@@ -196,6 +213,7 @@ export default async function TradesPage({ searchParams }: PageProps<"/trades">)
             </nav>
           )}
         </Card>
+        </>
       )}
     </>
   );

@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import { summarizeExcursions } from "./excursion";
 import { breakdown, summarize, type BreakdownRow } from "./metrics";
 import type { TradeResult } from "./trade-math";
 
@@ -133,6 +134,50 @@ export function generateInsights(results: TradeResult[]): Insight[] {
       title: `Trades logged as "${costliest.key.toLowerCase()}" are net losers`,
       detail: `This is a correlation in your journal, not a diagnosis: the ${costliest.trades} trades where you recorded feeling ${costliest.key.toLowerCase()} lost ${amount(costliest.netPnl)} in total.`,
       evidence: rowEvidence(costliest),
+    });
+  }
+
+  // Playbook grades: does following the checklist pay?
+  const grades = breakdown(results, "grade");
+  const gradeA = grades.find((g) => g.key === "Grade A");
+  const lower = results.filter((r) => r.trade.grade && r.trade.grade !== "A");
+  if (gradeA && gradeA.trades >= MIN_SAMPLE && lower.length >= MIN_SAMPLE) {
+    const rest = summarize(lower);
+    const restRow: BreakdownRow = {
+      key: "Grades B–D",
+      trades: rest.closedTrades,
+      wins: rest.wins,
+      winRate: rest.winRate ?? 0,
+      netPnl: rest.netPnl,
+      expectancy: rest.expectancy!,
+      profitFactor: rest.profitFactor,
+      averageR: rest.averageR,
+    };
+    const better = gradeA.expectancy.gt(restRow.expectancy);
+    insights.push({
+      id: "grades",
+      tone: better ? "positive" : "negative",
+      title: better ? "A-grade trades are where your money is made" : "Your A-grade trades aren't outperforming",
+      detail: better
+        ? `Trades that met every playbook rule average ${money(gradeA.expectancy)} versus ${money(restRow.expectancy)} for trades that skipped rules.`
+        : `Trades that met every rule average ${money(gradeA.expectancy)} versus ${money(restRow.expectancy)} for the rest. Some of your rules may not be adding edge.`,
+      evidence: [...rowEvidence(gradeA), ...rowEvidence(restRow)],
+    });
+  }
+
+  // Excursions: losers that were comfortably in profit first.
+  const ex = summarizeExcursions(results);
+  if (ex.losersWithMfeR >= MIN_SAMPLE && ex.losersThatWereUp1R / ex.losersWithMfeR >= 0.3) {
+    insights.push({
+      id: "gave-back",
+      tone: "negative",
+      title: `${ex.losersThatWereUp1R} of your losing trades were 1R or more in profit first`,
+      detail: "Consider a rule for protecting open profit, such as moving the stop to breakeven or taking partial profit at +1R, and test it against these trades.",
+      evidence: [
+        { label: "Losers with best price recorded", value: String(ex.losersWithMfeR) },
+        { label: "Of those, reached +1R before losing", value: String(ex.losersThatWereUp1R) },
+        { label: "Winners' average exit efficiency", value: ex.averageExitEfficiency === null ? "—" : pct(ex.averageExitEfficiency * 100) },
+      ],
     });
   }
 

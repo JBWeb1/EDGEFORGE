@@ -8,6 +8,7 @@ const LINKS: { href: string; label: string; match?: string }[] = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/coach", label: "AI coach" },
   { href: "/trades", label: "Journal" },
+  { href: "/playbooks", label: "Playbooks" },
   { href: "/calendar", label: "Calendar" },
   { href: "/days/today", label: "Daily journal", match: "/days" },
   { href: "/tools", label: "Position size" },

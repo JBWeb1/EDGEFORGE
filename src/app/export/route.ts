@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { TAG_SELECT, toTradeInput } from "@/lib/data/trades";
+import { TRADE_EXTRAS, toTradeInput } from "@/lib/data/trades";
 import { tradesToCsv } from "@/lib/export";
 import { getCurrentUser } from "@/lib/session";
 
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   const trades = await prisma.trade.findMany({
     where: { userId: user.id, ...(accountId ? { accountId } : {}) },
     orderBy: [{ entryAt: "asc" }, { id: "asc" }],
-    include: { account: { select: { name: true, currency: true } }, tags: TAG_SELECT },
+    include: { account: { select: { name: true, currency: true } }, ...TRADE_EXTRAS },
   });
   const csv = tradesToCsv(
     trades.map((t) => ({

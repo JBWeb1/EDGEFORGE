@@ -1,0 +1,20 @@
+{
+  "name": "EDGEFORGE",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": { "label": "EDGEFORGE", "onAutoForward": "openBrowser" },
+    "5432": { "label": "PostgreSQL", "onAutoForward": "ignore" }
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postAttachCommand": "npm run dev",
+  "customizations": {
+    "codespaces": { "openFiles": ["README.md"] },
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint", "bradlc.vscode-tailwindcss", "Prisma.prisma"]
+    }
+  },
+  "hostRequirements": { "cpus": 2, "memory": "4gb" }
+}

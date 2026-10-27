@@ -18,12 +18,19 @@ function buildId(): string {
 
 const BUILD_ID = buildId();
 
+// GitHub Codespaces serves the app from *.app.github.dev through a forwarding
+// proxy. Allow that host only when actually running in a codespace.
+const CODESPACE_HOSTS = process.env.CODESPACES === "true" ? ["*.app.github.dev"] : [];
+
 const nextConfig: NextConfig = {
   // Inlined at build time for both server and browser code.
   env: { APP_BUILD_ID: BUILD_ID, APP_VERSION: pkg.version },
   // Version skew protection: an outdated tab hard-reloads instead of calling
   // Server Actions that no longer exist. Vercel manages its own deployment id.
   ...(process.env.VERCEL ? {} : { deploymentId: BUILD_ID }),
+  ...(CODESPACE_HOSTS.length
+    ? { allowedDevOrigins: CODESPACE_HOSTS, experimental: { serverActions: { allowedOrigins: CODESPACE_HOSTS } } }
+    : {}),
   turbopack: {
     rules: {
       "*.css": {

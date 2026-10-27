@@ -2,6 +2,8 @@
 
 # EDGEFORGE — Master your edge.
 
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/JBWeb1/EDGEFORGE?quickstart=1)
+
 **Trading intelligence platform.** EDGEFORGE starts with the part everything else depends on: an accurate trade journal and analytics engine. AI coaching, backtesting and broker sync come later, built on top of numbers you can trust.
 
 > "EDGEFORGE" is a working name. Trademark and domain availability have not been checked.
@@ -27,6 +29,10 @@
 | **AI trading coach** (Claude): answers questions about your own journal, cites the trades behind each claim, daily question limit | ✅ |
 | Daily journal: pre-market plan, post-session review and mood per trading day, linked from the calendar | ✅ |
 | Trade tags with filters, per-tag statistics, and CSV import/export | ✅ |
+| **Playbooks**: strategies written as checklists; trades graded A–D by rules met; performance per playbook and grade | ✅ |
+| **MAE / MFE**: worst and best price while open, exit efficiency, open profit left on the table, losers that were +1R first | ✅ |
+| Holding-time analysis: results by time in trade, average hold of winners vs losers | ✅ |
+| Bulk editing in the journal: tag, set playbook or setup, or delete many trades at once | ✅ |
 | Monte Carlo simulator: range of outcomes, drawdown and losing-streak odds from your own results | ✅ |
 | Self-updating: new-version banner, live data sync across tabs and devices, live prices on open trades, automated dependency updates | ✅ |
 | AI coach, backtesting & replay, broker API sync, subscriptions | Planned (phases 3–5) |
@@ -47,6 +53,8 @@ All money math uses decimal arithmetic (`decimal.js`), not floating point. The e
 - Statistics never mix currencies. "All accounts" only appears when every account uses the same currency.
 - Trading days, the calendar, risk rules and weekday/hour breakdowns use the time zone in **Settings** (UTC by default). Individual timestamps are shown in each viewer's device time zone.
 - **Risk rules** are checked per account: *max risk* compares each trade's initial risk with the limit; *max trades* flags every trade beyond the limit on a trading day (by entry time); *daily loss* flags trades opened after that day's realised net P&L reached the limit.
+- **MAE / MFE** are measured from the entry: in money (× quantity × multiplier) and in R (÷ distance to the stop). **Exit efficiency** = realised price move ÷ best available move, averaged over winning trades only. **Left on the table** = best open profit − profit banked (a loss counts as zero banked).
+- **Grades**: A = every playbook rule met, B ≥ 75%, C ≥ 50%, D below. Editing a rule's wording un-ticks it on past trades; reordering keeps the ticks.
 - **Position size** = risk budget ÷ (|entry − stop| × multiplier), rounded *down* to the size step, so the loss at the stop never exceeds the budget (fees and slippage excluded).
 - Insights only use groups with at least 5 closed trades, and present correlations, not diagnoses.
 
@@ -71,11 +79,23 @@ EDGEFORGE keeps itself current in four ways:
 | **Dependencies** | Dependabot opens grouped weekly pull requests for npm packages (monthly for GitHub Actions), only for releases that have been public for 14 days. CI runs migrations, lint, typecheck, tests and a production build on every pull request. |
 | **Database** | `npm run vercel-build` (used automatically by Vercel) and `npm run start:migrate` apply pending migrations before the new version starts. |
 
+## Inspiration
+
+Feature ideas were benchmarked against open-source journals [TradeNote](https://github.com/Eleven-Trading/TradeNote) (GPL-3.0) and [Deltalytix](https://github.com/hugodemenez/deltalytix) (CC BY-NC 4.0): MFE tracking and grading trades against your strategy, holding-time stats and bulk editing. No code was copied from either project; EDGEFORGE's implementations are its own.
+
 ## Tech stack
 
 Next.js 16 (App Router, Server Actions) · React 19 · TypeScript · Tailwind CSS 4 · PostgreSQL + Prisma 7 · Better Auth · TradingView Lightweight Charts · Zod · Papa Parse
 
 UI primitives are small hand-written Tailwind components in [`src/components/ui.tsx`](src/components/ui.tsx) rather than shadcn/ui, to keep Phase 1 lean.
+
+## Run it in your browser (no install)
+
+1. Click **Open in GitHub Codespaces** above (or **Code → Codespaces → Create codespace** on GitHub).
+2. Wait about two minutes while it installs, creates the database and loads demo data.
+3. The app opens in a new browser tab. Sign in with **demo@edgeforge.local** / **edgeforge-demo**.
+
+The codespace runs the full app with its own private PostgreSQL database ([`.devcontainer/`](.devcontainer)). Codespaces is free for a monthly allowance on personal GitHub accounts; stop the codespace when you're done. To reset the demo data, run `npm run seed:demo`.
 
 ## Getting started
 
@@ -99,6 +119,7 @@ Sign up, add a trading account, then log trades or import [`samples/sample-trade
 | `npm run lint` · `npm run typecheck` | Static checks |
 | `npm run db:migrate` · `db:deploy` · `db:generate` | Prisma migrations (dev / production) and client generation |
 | `npm run sample:csv` | Regenerate the sample CSV |
+| `npm run seed:demo` | Create or reset the demo account (demo@edgeforge.local / edgeforge-demo); refuses to run in production |
 | `npm run start:migrate` · `npm run vercel-build` | Apply migrations, then start / build (for deploys) |
 
 ## Security

@@ -39,6 +39,9 @@ export const tradeSchema = z
     exitAt: z.preprocess(blankToNull, isoDate("Exit time").nullable()),
     stopLoss: optionalPositiveDecimal("Stop loss"),
     takeProfit: optionalPositiveDecimal("Take profit"),
+    maePrice: optionalPositiveDecimal("Worst price"),
+    mfePrice: optionalPositiveDecimal("Best price"),
+    playbookId: z.preprocess(blankToNull, z.string().max(40).nullable()),
     fees: z.preprocess(
       (v) => blankToNull(v) ?? "0",
       z.string().trim().regex(/^\d+(\.\d{1,2})?$/, "Fees must be zero or a positive amount with up to 2 decimals."),
@@ -80,6 +83,31 @@ export const tradeSchema = z
       ctx.addIssue({ code: "custom", path: ["exitAt"], message: "Exit time is before entry time." });
     }
     const entry = Number(t.entryPrice);
+    // Excursions: the worst price is on the losing side of entry (and exit),
+    // the best price on the winning side.
+    const long = t.direction === "LONG";
+    const exitPx = t.exitPrice === null ? null : Number(t.exitPrice);
+    const worse = (a: number, b: number) => (long ? a <= b : a >= b);
+    if (t.maePrice !== null) {
+      const mae = Number(t.maePrice);
+      if (!worse(mae, entry) || (exitPx !== null && !worse(mae, exitPx))) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["maePrice"],
+          message: `The worst price can't be ${long ? "above" : "below"} the entry${exitPx !== null ? " or exit" : ""} price for a ${t.direction.toLowerCase()} trade.`,
+        });
+      }
+    }
+    if (t.mfePrice !== null) {
+      const mfe = Number(t.mfePrice);
+      if (!worse(entry, mfe) || (exitPx !== null && !worse(exitPx, mfe))) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["mfePrice"],
+          message: `The best price can't be ${long ? "below" : "above"} the entry${exitPx !== null ? " or exit" : ""} price for a ${t.direction.toLowerCase()} trade.`,
+        });
+      }
+    }
     if (t.stopLoss !== null) {
       const stop = Number(t.stopLoss);
       const wrongSide = t.direction === "LONG" ? stop >= entry : stop <= entry;

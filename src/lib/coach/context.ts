@@ -1,11 +1,12 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import { breakdown, summarize, type BreakdownRow, type Summary } from "@/lib/analytics/metrics";
+import { computeExcursion, summarizeExcursions } from "@/lib/analytics/excursion";
 import { findViolations } from "@/lib/analytics/rules";
 import { zonedParts } from "@/lib/analytics/timezone";
 import { computeClosedResults, computeTradeResult, isClosed } from "@/lib/analytics/trade-math";
 import { getSettings } from "@/lib/data/settings";
-import { TAG_SELECT, toTradeInput } from "@/lib/data/trades";
+import { TRADE_EXTRAS, toTradeInput } from "@/lib/data/trades";
 
 const MAX_TRADES = 300;
 const MAX_NOTES = 30;
@@ -60,7 +61,7 @@ export async function buildCoachContext(userId: string) {
     prisma.trade.findMany({
       where: { userId },
       orderBy: [{ entryAt: "desc" }, { id: "desc" }],
-      include: { tags: TAG_SELECT },
+      include: { ...TRADE_EXTRAS },
     }),
     prisma.dailyNote.findMany({ where: { userId }, orderBy: { date: "desc" }, take: MAX_NOTES }),
   ]);
@@ -104,7 +105,21 @@ export async function buildCoachContext(userId: string) {
         byRuleAdherence: rowsJson(breakdown(results, "rules")),
         byEmotion: rowsJson(breakdown(results, "emotion")),
         byTag: rowsJson(breakdown(results, "tag")),
+        byPlaybook: rowsJson(breakdown(results, "playbook")),
+        byPlaybookGrade: rowsJson(breakdown(results, "grade")),
+        byHoldingTime: rowsJson(breakdown(results, "hold")),
       },
+      excursions: (() => {
+        const e = summarizeExcursions(results);
+        return {
+          tradesWithWorstBestPrices: e.tradesWithData,
+          averageMaeR: e.averageMaeR === null ? null : +e.averageMaeR.toFixed(2),
+          averageMfeR: e.averageMfeR === null ? null : +e.averageMfeR.toFixed(2),
+          winnersAverageExitEfficiencyPct: e.averageExitEfficiency === null ? null : Math.round(e.averageExitEfficiency * 100),
+          totalLeftOnTable: n2(e.totalLeftOnTable),
+          losersThatWereUp1RFirst: `${e.losersThatWereUp1R} of ${e.losersWithMfeR}`,
+        };
+      })(),
       ruleBreaches: violations.slice(0, 100).map((v) => ({ rule: v.rule, date: v.date, trade: refOf.get(v.tradeId) ?? "older trade", detail: v.message })),
     };
   });
@@ -130,6 +145,18 @@ export async function buildCoachContext(userId: string) {
       followedRules: t.followedRules,
       confidence: t.confidence,
       tags: input.tags,
+      playbook: input.playbook,
+      grade: input.grade,
+      ...(r && (input.maePrice || input.mfePrice)
+        ? (() => {
+            const e = computeExcursion(r);
+            return {
+              maeR: e.maeR ? +e.maeR.toNumber().toFixed(2) : null,
+              mfeR: e.mfeR ? +e.mfeR.toNumber().toFixed(2) : null,
+              exitEfficiencyPct: e.exitEfficiency ? Math.round(e.exitEfficiency.toNumber() * 100) : null,
+            };
+          })()
+        : {}),
       notes: t.notes ? t.notes.slice(0, 400) : null,
     };
   });

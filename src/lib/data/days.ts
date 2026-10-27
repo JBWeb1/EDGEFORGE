@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { zonedTimeToUtc } from "@/lib/analytics/timezone";
 import { computeTradeResult, isClosed } from "@/lib/analytics/trade-math";
 import { getSettings } from "@/lib/data/settings";
-import { TAG_SELECT, toTradeInput } from "@/lib/data/trades";
+import { TRADE_EXTRAS, toTradeInput } from "@/lib/data/trades";
 
 export const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -27,7 +27,7 @@ export async function getDay(userId: string, date: string) {
         OR: [{ entryAt: { gte: start, lt: end } }, { exitAt: { gte: start, lt: end } }],
       },
       orderBy: { entryAt: "asc" },
-      include: { account: { select: { name: true, currency: true } }, tags: TAG_SELECT },
+      include: { account: { select: { name: true, currency: true } }, ...TRADE_EXTRAS },
     }),
     prisma.dailyNote.findUnique({ where: { userId_date: { userId, date } } }),
   ]);

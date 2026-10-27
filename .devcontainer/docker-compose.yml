@@ -1,0 +1,31 @@
+# Dev environment for GitHub Codespaces / VS Code Dev Containers:
+# the app container plus a private PostgreSQL 16 database.
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    environment:
+      DATABASE_URL: postgresql://edgeforge:edgeforge@db:5432/edgeforge?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: edgeforge
+      POSTGRES_PASSWORD: edgeforge
+      POSTGRES_DB: edgeforge
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U edgeforge"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:

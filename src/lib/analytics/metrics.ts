@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import { HOLD_BUCKETS, holdBucket } from "./excursion";
 import { zonedParts } from "./timezone";
 import type { TradeResult } from "./trade-math";
 
@@ -38,6 +39,8 @@ export type Summary = {
   maxDrawdownPct: number | null;
   longestWinStreak: number;
   longestLossStreak: number;
+  averageHoldWinMs: number | null;
+  averageHoldLossMs: number | null;
   startingBalance: Decimal;
   endingBalance: Decimal;
   returnPct: number | null;
@@ -120,6 +123,11 @@ export function streaks(results: TradeResult[]) {
   return { longestWin, longestLoss };
 }
 
+const avgMs = (rs: TradeResult[]) => {
+  const ms = rs.flatMap((r) => (r.holdingMs === null ? [] : [r.holdingMs]));
+  return ms.length ? ms.reduce((a, b) => a + b, 0) / ms.length : null;
+};
+
 export function summarize(results: TradeResult[], startingBalance: Decimal.Value = 0): Summary {
   const start = new Decimal(startingBalance);
   const winners = results.filter((r) => r.outcome === "WIN").map((r) => r.netPnl);
@@ -159,6 +167,8 @@ export function summarize(results: TradeResult[], startingBalance: Decimal.Value
     maxDrawdownPct: dd.pct,
     longestWinStreak: s.longestWin,
     longestLossStreak: s.longestLoss,
+    averageHoldWinMs: avgMs(results.filter((r) => r.outcome === "WIN")),
+    averageHoldLossMs: avgMs(results.filter((r) => r.outcome === "LOSS")),
     startingBalance: start,
     endingBalance: ending,
     returnPct: start.gt(0) ? net.div(start).mul(100).toNumber() : null,
@@ -176,7 +186,7 @@ export type BreakdownRow = {
   averageR: number | null;
 };
 
-export type GroupBy = "setup" | "symbol" | "weekday" | "direction" | "emotion" | "rules" | "hour" | "tag";
+export type GroupBy = "setup" | "symbol" | "weekday" | "direction" | "emotion" | "rules" | "hour" | "tag" | "hold" | "playbook" | "grade";
 
 export const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -198,6 +208,12 @@ export function groupKey(r: TradeResult, by: Exclude<GroupBy, "tag">, timeZone =
       return t.emotion ? t.emotion.charAt(0) + t.emotion.slice(1).toLowerCase() : "Not recorded";
     case "rules":
       return t.followedRules === true ? "Followed rules" : t.followedRules === false ? "Broke rules" : "Not recorded";
+    case "hold":
+      return holdBucket(r.holdingMs);
+    case "playbook":
+      return t.playbook ?? "No playbook";
+    case "grade":
+      return t.grade ? `Grade ${t.grade}` : "Not graded";
   }
 }
 
@@ -232,6 +248,10 @@ export function breakdown(results: TradeResult[], by: GroupBy, timeZone = "UTC")
   if (by === "weekday") {
     return rows.sort((a, b) => WEEKDAYS.indexOf(a.key) - WEEKDAYS.indexOf(b.key));
   }
-  if (by === "hour") return rows.sort((a, b) => a.key.localeCompare(b.key));
+  if (by === "hour" || by === "grade") return rows.sort((a, b) => a.key.localeCompare(b.key));
+  if (by === "hold") {
+    const order = [...HOLD_BUCKETS.map((b) => b.label), "Unknown"];
+    return rows.sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
+  }
   return rows.sort((a, b) => b.netPnl.comparedTo(a.netPnl));
 }

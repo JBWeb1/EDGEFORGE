@@ -3,7 +3,9 @@ import type { Trade } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 
 /** Converts a stored trade into the string values the trade form edits. */
-export function tradeToFormValues(t: Trade & { tags?: { name: string }[] }): Record<string, string> {
+export function tradeToFormValues(
+  t: Trade & { tags?: { name: string }[]; rulesMet?: { id: string }[] },
+): Record<string, string> {
   const s = (v: { toString(): string } | null) => (v === null ? "" : v.toString());
   return {
     id: t.id,
@@ -27,7 +29,20 @@ export function tradeToFormValues(t: Trade & { tags?: { name: string }[] }): Rec
     notes: t.notes ?? "",
     screenshotUrl: t.screenshotUrl ?? "",
     tags: t.tags?.map((x) => x.name).join(", ") ?? "",
+    maePrice: s(t.maePrice),
+    mfePrice: s(t.mfePrice),
+    playbookId: t.playbookId ?? "",
+    rulesMet: t.rulesMet?.map((r) => r.id).join(",") ?? "",
   };
+}
+
+/** The user's playbooks with their checklist rules, for the trade form. */
+export async function playbookOptions(userId: string) {
+  return prisma.playbook.findMany({
+    where: { userId },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, rules: { orderBy: { order: "asc" }, select: { id: true, text: true } } },
+  });
 }
 
 /** Tags the user has created, for suggestions and filters. */

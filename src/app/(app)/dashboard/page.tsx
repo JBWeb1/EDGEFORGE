@@ -8,7 +8,7 @@ import type { Insight } from "@/lib/analytics/insights";
 import type { BreakdownRow } from "@/lib/analytics/metrics";
 import { RULE_LABELS } from "@/lib/analytics/rules";
 import { getDashboardData, RANGES, type RangeKey } from "@/lib/data/dashboard";
-import { money, percent, pnlClass, rMultiple, ratio } from "@/lib/format";
+import { formatDuration, money, percent, pnlClass, rMultiple, ratio } from "@/lib/format";
 import { requireUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -232,7 +232,26 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
             <BreakdownTable title="By instrument" rows={data.bySymbol} currency={currency} />
             <BreakdownTable title="By weekday" rows={data.byWeekday} currency={currency} note={`Entry time in ${data.timeZone.replace(/_/g, " ")}.`} />
             <BreakdownTable title="By hour of entry" rows={data.byHour} currency={currency} note={`Entry time in ${data.timeZone.replace(/_/g, " ")}.`} />
- <BreakdownTable title="By tag" rows={data.byTag} currency={currency} note="A trade with several tags counts in each." />
+ {data.byPlaybook.some((r) => r.key !== "No playbook") && <BreakdownTable title="By playbook" rows={data.byPlaybook} currency={currency} />}
+            {data.byGrade.some((r) => r.key !== "Not graded") && <BreakdownTable title="By playbook grade" rows={data.byGrade} currency={currency} note="A = every rule met · B 75%+ · C 50%+ · D under half." />}
+            <BreakdownTable title="By holding time" rows={data.byHold} currency={currency} note={`Average hold: winners ${formatDuration(s.averageHoldWinMs)}, losers ${formatDuration(s.averageHoldLossMs)}.`} />
+            {data.excursions.tradesWithData > 0 && (
+              <Card>
+                <CardTitle>Exits &amp; excursions</CardTitle>
+                <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <div><dt className="text-xs text-navy-400">Exit efficiency</dt><dd className="num text-lg font-semibold text-white">{data.excursions.averageExitEfficiency === null ? "—" : percent(data.excursions.averageExitEfficiency * 100, 0)}</dd><dd className="text-xs text-navy-400">of the best move captured by winners</dd></div>
+                  <div><dt className="text-xs text-navy-400">Left on the table</dt><dd className="num text-lg font-semibold text-white">{money(data.excursions.totalLeftOnTable, currency)}</dd><dd className="text-xs text-navy-400">open profit not banked</dd></div>
+                  <div><dt className="text-xs text-navy-400">Average MAE</dt><dd className="num text-white">{data.excursions.averageMaeR === null ? "—" : `${data.excursions.averageMaeR.toFixed(2)}R`}</dd><dd className="text-xs text-navy-400">heat taken before exit</dd></div>
+                  <div><dt className="text-xs text-navy-400">Average MFE</dt><dd className="num text-white">{data.excursions.averageMfeR === null ? "—" : `${data.excursions.averageMfeR.toFixed(2)}R`}</dd><dd className="text-xs text-navy-400">best open profit</dd></div>
+                </dl>
+                <p className="mt-3 border-t border-navy-700 pt-3 text-xs text-navy-400">
+                  {data.excursions.losersWithMfeR > 0 && <>{data.excursions.losersThatWereUp1R} of {data.excursions.losersWithMfeR} losers were +1R first. </>}
+                  {data.excursions.winnersWithMaeR > 0 && <>{data.excursions.winnersWithinHalfStop} of {data.excursions.winnersWithMaeR} winners never used more than half the stop. </>}
+                  Based on {data.excursions.tradesWithData} trades with worst/best prices recorded.
+                </p>
+              </Card>
+            )}
+            <BreakdownTable title="By tag" rows={data.byTag} currency={currency} note="A trade with several tags counts in each." />
             <BreakdownTable title="Rule discipline" rows={data.byRules} currency={currency} />
             <BreakdownTable title="Emotional state" rows={data.byEmotion} currency={currency} note="Correlations in your journal, not a diagnosis." />
             {data.discipline ? (

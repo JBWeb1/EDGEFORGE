@@ -26,7 +26,16 @@ export type TradeInput = {
   emotion?: string | null;
   followedRules?: boolean | null;
   tags?: string[];
+  /** Worst price reached while open (maximum adverse excursion). */
+  maePrice?: Decimal.Value | null;
+  /** Best price reached while open (maximum favorable excursion). */
+  mfePrice?: Decimal.Value | null;
+  playbook?: string | null;
+  /** A–D grade from the playbook checklist, or null when not graded. */
+  grade?: Grade | null;
 };
+
+export type Grade = "A" | "B" | "C" | "D";
 
 export type Outcome = "WIN" | "LOSS" | "BREAKEVEN";
 

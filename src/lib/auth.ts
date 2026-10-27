@@ -6,6 +6,8 @@ import { prisma } from "@/lib/db";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
+  // Extra origins allowed to call the auth endpoints (comma-separated), e.g. a preview domain.
+  trustedOrigins: (process.env.BETTER_AUTH_TRUSTED_ORIGINS ?? "").split(",").map((o) => o.trim()).filter(Boolean),
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 10,

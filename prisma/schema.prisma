@@ -32,6 +32,7 @@ model User {
   dailyNotes      DailyNote[]
   tags            Tag[]
   coachUsage      CoachUsage[]
+  playbooks       Playbook[]
 
   @@map("user")
 }
@@ -148,6 +149,10 @@ model Trade {
 
   stopLoss   Decimal? @db.Decimal(24, 8)
   takeProfit Decimal? @db.Decimal(24, 8)
+  // Worst and best prices reached while the trade was open (maximum adverse
+  // and favorable excursion). Optional; they power exit-efficiency stats.
+  maePrice   Decimal? @db.Decimal(24, 8)
+  mfePrice   Decimal? @db.Decimal(24, 8)
   // Total commissions and fees for the round trip, in account currency.
   fees       Decimal  @default(0) @db.Decimal(20, 2)
 
@@ -160,6 +165,11 @@ model Trade {
   screenshotUrl String?
 
   tags Tag[]
+
+  playbookId String?
+  playbook   Playbook?      @relation(fields: [playbookId], references: [id], onDelete: SetNull)
+  // Which of the playbook's rules this trade met; drives the trade's grade.
+  rulesMet   PlaybookRule[]
 
   importBatchId String?
   importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
@@ -257,4 +267,34 @@ model CoachUsage {
 
   @@id([userId, date])
   @@map("coach_usage")
+}
+
+// ─── Playbooks ──────────────────────────────────────────────────────────────
+
+// A written strategy: the conditions a trade must meet before it's taken.
+model Playbook {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  rules       PlaybookRule[]
+  trades      Trade[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([userId, name])
+  @@map("playbook")
+}
+
+model PlaybookRule {
+  id         String   @id @default(cuid())
+  playbookId String
+  playbook   Playbook @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+  text       String
+  order      Int
+  trades     Trade[]
+
+  @@index([playbookId])
+  @@map("playbook_rule")
 }

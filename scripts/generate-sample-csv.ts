@@ -38,13 +38,22 @@ for (let i = 0; i < 90; i++) {
   const win = rand() < EDGE[setup];
   const r = win ? 0.8 + rand() * 1.6 : -(0.5 + rand() * 0.6);
   const exit = entry + (long ? 1 : -1) * r * riskDist;
+  // Excursions consistent with the outcome: the worst price is at or beyond the
+  // losing side of entry and exit, the best price at or beyond the winning side.
+  const dir = long ? 1 : -1;
+  const heat = win ? rand() * 0.8 : Math.max(-r, 0) + rand() * 0.05;
+  const run = win ? r + rand() * 1.2 : rand() * 1.8;
+  const mae = entry - dir * heat * riskDist;
+  const mfe = entry + dir * Math.max(run, 0.05) * riskDist;
   const entryAt = new Date(d.getTime() + Math.floor(rand() * 300) * 60_000);
   const exitAt = new Date(entryAt.getTime() + (10 + Math.floor(rand() * 180)) * 60_000);
   const fees = (s.mult > 1 ? 4.2 : 1 + rand() * 2).toFixed(2);
   const iso = (x: Date) => x.toISOString().slice(0, 16).replace("T", " ");
   rows.push(
     [s.symbol, long ? "long" : "short", s.qty, iso(entryAt), round(entry, s.tick), iso(exitAt), round(exit, s.tick),
-      round(stop, s.tick), round(target, s.tick), fees, s.mult, setup, "", ""].join(","),
+      round(stop, s.tick), round(target, s.tick), fees, s.mult, setup, "", "", "",
+      round(long ? Math.min(mae, exit) : Math.max(mae, exit), s.tick),
+      round(long ? Math.max(mfe, exit) : Math.min(mfe, exit), s.tick)].join(","),
   );
 }
 
